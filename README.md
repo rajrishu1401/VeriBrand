@@ -125,9 +125,9 @@ Open **http://localhost:8080**
 
 ## Round 3 Improvements
 
-1. **Intent-Preserving AI Rewrites** — Automatically generate a corrected version of flagged content that passes all brand rules while preserving the creator's message
-2. **Living Guideline Feedback Loop** — Each approval/rejection trains a weighting model so the system learns which violations matter most to each brand
-3. **Leadership Analytics Dashboard** — Brand health trends, creator leaderboards, violation heatmaps, and ROI calculation vs. manual review
+1. **Intent-Preserving AI Rewrites** — Automatically generate a corrected version of flagged content that passes all brand rules while preserving the creator's voice and intent for 1-click adoption.
+2. **Multi-Modal Visual Brand Auditing** — Expand from text-only to image auditing: extract dominant color palettes (hex verification), check logo placement & clear space, and calculate WCAG text-overlay contrast ratios.
+3. **Living Guideline Feedback Loop** — Track reviewer approval/rejection decisions against AI flags to detect patterns and alert leadership when guidelines are ambiguous or outdated.
 
 ---
 
