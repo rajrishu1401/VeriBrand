@@ -151,22 +151,13 @@ function QueueView() {
             {f} {f === 'All' ? `(${submissions.length})` : `(${submissions.filter(s => s.status === filterMap[f]).length})`}
           </button>
         ))}
-        <button
-          onClick={async () => {
-            await fetch(`${API_BASE}/api/seed-demo`, { method: 'POST' });
-            const r = await fetch(`${API_BASE}/api/submissions`);
-            setSubmissions(await r.json());
-          }}
-          className="ml-auto px-4 py-2 rounded-lg text-sm font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
-        >
-          🎲 Seed Demo Data
-        </button>
+
       </div>
 
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg p-12 text-center text-gray-500">
-          No submissions found. <Link href="/submit" className="text-indigo-600 hover:underline">Submit content</Link> or seed demo data above.
+          No submissions found. <Link href="/submit" className="text-indigo-600 hover:underline">Submit content to audit</Link> first.
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
