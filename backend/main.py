@@ -38,16 +38,12 @@ deterministic_engine = DeterministicEngine()
 
 @app.on_event("startup")
 async def startup_event():
-    """Auto-seed demo data on first run so judges see a populated dashboard."""
+    """Initialize database on startup."""
     try:
         submissions = db.get_all_submissions()
-        if len(submissions) == 0:
-            db.seed_demo_data()
-            print("✅ Demo data auto-seeded (first run)")
-        else:
-            print(f"✅ Database ready ({len(submissions)} submissions)")
+        print(f"✅ Database ready ({len(submissions)} submissions)")
     except Exception as e:
-        print(f"⚠️ Startup seeding skipped: {e}")
+        print(f"⚠️ Startup check failed: {e}")
 
 
 # ==================== Request/Response Models ====================
@@ -262,12 +258,6 @@ async def get_submissions():
     """Return all submissions with status, trust_score, creator_name, total_flags"""
     return db.get_all_submissions()
 
-
-@app.post("/api/seed-demo")
-async def seed_demo():
-    """Seed the database with 5 realistic demo submissions for hackathon demo"""
-    db.seed_demo_data()
-    return {"success": True, "message": "Demo data seeded successfully", "count": 5}
 
 
 @app.get("/api/export/{submission_id}")
