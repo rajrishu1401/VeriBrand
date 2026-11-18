@@ -36,6 +36,20 @@ rag_engine = RAGEngine()
 deterministic_engine = DeterministicEngine()
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Auto-seed demo data on first run so judges see a populated dashboard."""
+    try:
+        submissions = db.get_all_submissions()
+        if len(submissions) == 0:
+            db.seed_demo_data()
+            print("✅ Demo data auto-seeded (first run)")
+        else:
+            print(f"✅ Database ready ({len(submissions)} submissions)")
+    except Exception as e:
+        print(f"⚠️ Startup seeding skipped: {e}")
+
+
 # ==================== Request/Response Models ====================
 
 class GuidelineUploadResponse(BaseModel):
