@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * Content Submission Page - Enhanced
@@ -203,7 +203,7 @@ export default function SubmitPage() {
   };
 
   const loadSampleGood = () => {
-    setContent(`Introducing our marketing analytics platform for TechCorp Solutions.\n\nOur platform helps businesses improve campaign ROI by an average of 23% (based on 2024 customer survey, 1,200 responses, self-reported by customers).\n\nJoin over 5,000 companies using TechCorp to streamline their workflows. Our feature set includes audience segmentation, A/B testing, and real-time performance tracking.\n\nTry our 14-day trial to see if TechCorp fits your needs. Results may vary based on your specific use case. Terms and conditions apply. No credit card required for trial.`);
+    setContent(`TechCorp Analytics Platform\n\nOur marketing analytics platform helps businesses improve campaign ROI by an average of 23% (Source: TechCorp 2024 Customer Survey, n=1,200 responses, self-reported, conducted January-March 2024).\n\nKey capabilities include audience segmentation, A/B testing, and real-time performance dashboards. Over 5,000 companies use TechCorp to manage their marketing workflows.\n\nStart your 14-day pilot to evaluate fit for your team. Results may vary based on your specific use case. Terms and conditions apply. No credit card required for trial.`);
   };
 
   const handleSubmit = async () => {

@@ -194,7 +194,7 @@ class RAGEngine:
             for i, rule in enumerate(relevant_rules)
         ])
 
-        prompt = f"""You are a brand compliance auditor. Analyze the following content against the provided brand guidelines.
+        prompt = f"""You are a strict but fair brand compliance auditor. Analyze the content against the brand guidelines below.
 
 BRAND GUIDELINES:
 {context}
@@ -202,14 +202,19 @@ BRAND GUIDELINES:
 CONTENT TO AUDIT:
 {content}
 
-Task: Identify ALL violations where the content conflicts with or fails to follow the brand guidelines.
+INSTRUCTIONS:
+- Only flag CLEAR, DEFINITIVE violations where the content explicitly breaks a guideline rule.
+- Do NOT flag content that already satisfies a requirement. If a disclaimer is present, do not flag it as missing.
+- Do NOT flag content for things the guidelines don't explicitly require.
+- Do NOT flag vague or speculative issues.
+- If the content is compliant with the retrieved guidelines, return an empty array.
 
-For each violation, provide:
-1. violation_type: Brief category (e.g., "Tone Mismatch", "Prohibited Term", "Missing Element")
-2. description: Exact description of what's wrong
+For each DEFINITIVE violation found, provide:
+1. violation_type: Brief category (e.g., "Tone Mismatch", "Prohibited Term", "Missing Disclaimer")
+2. description: Exact description of what is wrong and what guideline text it violates
 3. rule_citation: Which guideline rule was violated (use the Rule number provided above)
-4. severity: "high", "medium", or "low"
-5. suggestion: Specific fix aligned with the guideline
+4. severity: "high" for explicit rule breaks, "medium" for missing required elements, "low" for style issues
+5. suggestion: Specific fix aligned with the exact guideline wording
 
 Return ONLY valid JSON array format:
 [
@@ -222,7 +227,7 @@ Return ONLY valid JSON array format:
   }}
 ]
 
-If no violations found, return: []
+If the content is compliant or no clear violations exist, return: []
 """
 
         try:
