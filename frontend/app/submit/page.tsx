@@ -203,7 +203,7 @@ export default function SubmitPage() {
   };
 
   const loadSampleGood = () => {
-    setContent(`Introducing our new marketing analytics platform.\n\nOur platform helps businesses track campaign performance with real-time insights. Try our free trial (no credit card required, terms apply).\n\nJoin over 5,000 businesses using our tools to improve their marketing strategy. Our feature set includes audience segmentation, A/B testing, and performance tracking.\n\nGet started with our 14-day trial today. Results may vary based on your use case.`);
+    setContent(`Introducing our new marketing analytics platform.\n\nOur platform helps businesses track campaign performance with real-time insights. Start your 14-day trial today (no credit card required, terms and conditions apply).\n\nJoin over 5,000 businesses using our tools to improve their marketing strategy. Our feature set includes audience segmentation, A/B testing, and performance tracking.\n\nResults may vary based on your team size and configuration.`);
   };
 
   const handleSubmit = async () => {
@@ -319,6 +319,7 @@ export default function SubmitPage() {
                   Try Compliant Content
                 </button>
               </div>
+              <p className="text-xs text-gray-400 text-center -mt-2">Sample content for the included brand guideline</p>
 
               <button
                 onClick={handleSubmit} disabled={auditing || !content.trim()}
