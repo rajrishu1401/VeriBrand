@@ -1,0 +1,226 @@
+BRAND VOICE & MESSAGING GUIDELINES
+===================================
+
+Company: TechCorp Solutions
+Version: 2.0
+Last Updated: January 2026
+
+---
+
+SECTION 1: CORE BRAND PRINCIPLES
+---------------------------------
+
+Our brand voice is professional, confident, and transparent. We build trust through honesty and evidence-based claims, not hype.
+
+
+SECTION 2: PROHIBITED LANGUAGE
+-------------------------------
+
+2.1 Absolute Claims
+Never use terms that create legal liability or are unprovable:
+- "guarantee" or "guaranteed"
+- "always" or "never" (in claims about results)
+- "100%" (in relation to success, uptime, or outcomes)
+- "completely free" or "totally free"
+
+2.2 Hyperbolic Language
+Avoid exaggerated terms that undermine credibility:
+- "revolutionary"
+- "game-changing" 
+- "unprecedented"
+- "unmatched"
+- "unbelievable"
+- "miracle"
+- "magic"
+
+2.3 Unsupported Superlatives
+Any superlative claim MUST be supported by verifiable third-party evidence:
+- "best" - requires citation from independent source
+- "fastest" - requires benchmark data
+- "leading" or "top" - requires market research citation
+- "#1" or "number one" - requires verified ranking
+- "most" - requires comparative data
+
+Acceptable alternative: "One of the leading solutions" or "Among the fastest platforms"
+
+
+SECTION 3: REQUIRED DISCLAIMERS
+--------------------------------
+
+3.1 Performance Claims
+When mentioning "results", "outcomes", "performance", or "success", always include:
+"Results may vary based on your specific use case."
+
+3.2 Pricing Language
+When using "free", "trial", or "no cost", must include:
+"Terms and conditions apply. No credit card required for trial."
+
+3.3 Security Claims
+When mentioning "secure", "protected", or "encrypted", must include:
+"Security measures cannot eliminate all risks. See our security documentation for details."
+
+
+SECTION 4: FORMATTING STANDARDS
+--------------------------------
+
+4.1 Typography
+- Avoid ALL CAPS for emphasis (except in acronyms like API, CRM)
+- Maximum one exclamation mark per paragraph
+- Use bold or italics for emphasis, not excessive punctuation
+
+4.2 Punctuation
+- No multiple exclamation marks (!!!)
+- No multiple question marks (???)
+- Professional tone throughout
+
+
+SECTION 5: TONE GUIDELINES
+---------------------------
+
+5.1 Voice Characteristics
+- Professional but approachable
+- Confident without being arrogant
+- Helpful without being condescending
+- Specific with data, not vague promises
+
+5.2 Acceptable Tone Examples
+✓ "Our platform helps businesses improve campaign ROI by an average of 23% (based on 2024 customer survey)."
+✓ "Join over 5,000 companies using TechCorp to streamline their workflows."
+✓ "Try our 14-day trial to see if TechCorp fits your needs. Results may vary."
+
+5.3 Unacceptable Tone Examples
+✗ "The BEST solution you'll EVER need! GUARANTEED results!"
+✗ "Revolutionary technology that will change EVERYTHING!"
+✗ "Absolutely FREE forever with no catches!"
+
+
+SECTION 6: EVIDENCE-BASED MESSAGING
+------------------------------------
+
+6.1 Citation Requirements
+All claims about our product must be:
+- Verifiable through internal data
+- Supported by customer testimonials
+- Backed by third-party reviews
+- Based on documented benchmarks
+
+6.2 Data Presentation
+When sharing statistics:
+- Include source and date: "(Customer survey, December 2024)"
+- Specify sample size: "Based on 1,200 responses"
+- Note methodology: "Self-reported by customers"
+
+
+SECTION 7: COMPETITIVE POSITIONING
+-----------------------------------
+
+7.1 Comparisons
+When comparing to competitors:
+- Never name competitors directly in marketing copy
+- Use "other solutions" or "traditional approaches"
+- Back comparisons with objective data
+- Avoid absolute statements like "better than everyone"
+
+7.2 Acceptable Comparison Language
+✓ "Unlike many traditional tools, TechCorp offers real-time sync."
+✓ "Our pricing is transparent compared to industry averages."
+
+7.3 Unacceptable Comparison Language
+✗ "We're better than [Competitor Name]"
+✗ "Only TechCorp can do this"
+
+
+SECTION 8: CUSTOMER SUCCESS STORIES
+------------------------------------
+
+8.1 Testimonial Requirements
+All customer quotes must:
+- Be authentic and verifiable
+- Include customer name and company (with permission)
+- Disclose if customer received compensation
+- Include disclaimer: "Results may vary"
+
+8.2 Case Study Standards
+Published case studies must include:
+- Specific metrics and timeframes
+- Implementation context
+- Customer challenges and solutions
+- Honest discussion of limitations
+
+
+SECTION 9: SOCIAL MEDIA GUIDELINES
+-----------------------------------
+
+9.1 Platform-Specific Tone
+- LinkedIn: Professional, insight-driven
+- Twitter: Concise, helpful, engaging
+- Instagram: Visual storytelling, authentic
+
+9.2 Engagement Rules
+- Respond to criticism professionally
+- Never engage in arguments
+- Acknowledge mistakes transparently
+- Direct support requests to proper channels
+
+
+SECTION 10: LEGAL COMPLIANCE
+-----------------------------
+
+10.1 Regulatory Language
+All marketing materials must comply with:
+- FTC truth in advertising standards
+- GDPR privacy requirements
+- Industry-specific regulations
+
+10.2 Privacy Claims
+When mentioning data handling:
+- Link to Privacy Policy
+- Be specific about what data is collected
+- Explain how data is used
+- Never claim "we don't collect any data" (too absolute)
+
+
+SECTION 11: REVIEW PROCESS
+---------------------------
+
+11.1 Pre-Publication Checklist
+Before publishing any marketing content, verify:
+☐ No prohibited language used
+☐ All required disclaimers included
+☐ Claims backed by evidence
+☐ Tone aligns with brand voice
+☐ Formatting follows standards
+☐ Legal review for high-visibility content
+
+11.2 Audit Frequency
+- Quarterly review of all published content
+- Immediate review if guidelines updated
+- Spot checks on social media posts
+
+
+APPENDIX A: QUICK REFERENCE
+----------------------------
+
+NEVER USE:
+× guarantee, guaranteed
+× always, never (in claims)
+× best, #1 (without citation)
+× revolutionary, game-changing
+× 100%, completely free
+× ALL CAPS (except acronyms)
+× Multiple exclamation marks!!!
+
+ALWAYS INCLUDE:
+✓ "Results may vary" (with performance claims)
+✓ "Terms apply" (with pricing)
+✓ Citations for statistics
+✓ Sources for testimonials
+✓ Professional, measured tone
+
+---
+
+For questions about these guidelines, contact:
+brand@techcorp.com
+
+Remember: When in doubt, be honest, specific, and professional.
+Our brand is built on trust, not hype.

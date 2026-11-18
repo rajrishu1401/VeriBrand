@@ -1,0 +1,24 @@
+# FastAPI and server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database
+sqlalchemy
+
+# RAG and embeddings
+chromadb
+google-genai
+
+# Data validation
+pydantic
+
+# PDF processing (for guideline upload)
+PyPDF2
+python-docx
+
+# Environment variables
+python-dotenv
+
+# Utilities
+python-dateutil
