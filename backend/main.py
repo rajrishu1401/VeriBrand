@@ -86,9 +86,9 @@ class ApprovalRequest(BaseModel):
 
 # ==================== API Endpoints ====================
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
-    """Health check endpoint"""
+    """Health check endpoint (supports GET and HEAD for uptime monitors)"""
     return {
         "service": "VeriBrand API",
         "status": "running",
