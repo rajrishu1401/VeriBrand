@@ -181,7 +181,7 @@ function FlagCard({ flag }: { flag: AuditFlag; idx: number }) {
 export default function SubmitPage() {
   const [content, setContent] = useState('');
   const [contentType, setContentType] = useState('text');
-  const [creatorName, setCreatorName] = useState('Demo User');
+  const [creatorName, setCreatorName] = useState('');
   const [auditing, setAuditing] = useState(false);
   const [result, setResult] = useState<AuditResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -280,7 +280,7 @@ export default function SubmitPage() {
                 <input
                   type="text" value={creatorName} onChange={e => setCreatorName(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
-                  placeholder="Your name"
+                  placeholder="Enter your name"
                 />
               </div>
 
@@ -312,11 +312,11 @@ export default function SubmitPage() {
               <div className="flex space-x-3">
                 <button onClick={loadSampleBad}
                   className="flex-1 px-4 py-2 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors border border-red-200">
-                  Load Bad Example
+                  Try Non-Compliant Content
                 </button>
                 <button onClick={loadSampleGood}
                   className="flex-1 px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors border border-green-200">
-                  Load Good Example
+                  Try Compliant Content
                 </button>
               </div>
 
