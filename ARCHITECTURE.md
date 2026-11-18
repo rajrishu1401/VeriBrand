@@ -33,7 +33,7 @@
 │  ┌────▼────────────┐   ┌─────────▼─────────┐                 │
 │  │  Deterministic  │   │    RAG Engine     │                 │
 │  │  Rules Engine   │   │  (ChromaDB +      │                 │
-│  │  (Regex-based)  │   │   OpenAI GPT-4)   │                 │
+│  │  (Regex-based)  │   │   Gemini 1.5 Flash)   │                 │
 │  │                 │   │                   │                 │
 │  │ • Banned words  │   │ • Vector search   │                 │
 │  │ • Superlatives  │   │ • Embeddings      │                 │
@@ -62,10 +62,10 @@
          │                          │
          │                          │
    ┌─────▼─────┐            ┌───────▼───────┐
-   │  OpenAI   │            │   ChromaDB    │
+   │  Gemini   │            │   ChromaDB    │
    │    API    │            │Vector Storage │
    │           │            │               │
-   │ GPT-4o    │            │  Embeddings   │
+   │ Gemini 1.5 Flash    │            │  Embeddings   │
    │ mini +    │            │  + Metadata   │
    │ Embeddings│            │               │
    └───────────┘            └───────────────┘
@@ -86,7 +86,7 @@ Backend receives file
 ├─→ Extract text (PyPDF2)
 ├─→ Store in Database (SQLite)
 ├─→ Parse deterministic rules (regex)
-└─→ Create embeddings (OpenAI)
+└─→ Create embeddings (Gemini embedding-001, 3072-dim)
     ↓
     Store vectors in ChromaDB
     ↓
@@ -113,7 +113,7 @@ Backend receives content
     ├─→ Generate content embedding
     ├─→ ChromaDB similarity search
     ├─→ Retrieve top 10 relevant rules
-    ├─→ GPT-4 analyzes against rules
+    ├─→ Gemini 1.5 Flash analyzes against rules
     └─→ Generate flags with citations
     ↓
 Combine flags from both engines
@@ -225,13 +225,13 @@ class DeterministicEngine:
 class RAGEngine:
     def __init__(self):
         self.chroma_client = chromadb.Client()
-        self.openai_client = OpenAI()
+        self.gemini_client = genai.Client()
     
     def index_guideline(self, id: str, text: str):
         # Chunk text → Generate embeddings → Store in ChromaDB
     
     def check_content(self, content: str) -> List[Dict]:
-        # Embed content → Search similar rules → GPT-4 analysis
+        # Embed content → Search similar rules → Gemini 1.5 Flash analysis
 ```
 
 **Pros:**
@@ -241,7 +241,7 @@ class RAGEngine:
 - ✓ Adapts to any guideline automatically
 
 **Cons:**
-- ✗ 2-5 second latency (OpenAI API)
+- ✗ 2-5 second latency (Gemini API)
 - ✗ Costs per request
 - ✗ Confidence varies (0.6-1.0)
 
@@ -338,7 +338,7 @@ def retrieve_relevant_rules(guideline_id: str, content: str, top_k: int = 5):
     2. Query ChromaDB for top-k similar guideline chunks
     3. Return chunks with similarity scores (used as confidence)
     """
-    query_embedding = openai.embeddings.create(
+    query_embedding = client.models.embed_content(
         model="text-embedding-3-small",
         input=content
     )
@@ -403,9 +403,9 @@ app.add_middleware(
 ### Response Times (Estimated)
 | Endpoint | Time | Bottleneck |
 |----------|------|------------|
-| Upload guideline | 2-5s | OpenAI embeddings |
+| Upload guideline | 2-5s | Gemini embeddings (embedding-001) |
 | Submit content (deterministic only) | <100ms | Regex matching |
-| Submit content (deterministic + RAG) | 3-8s | OpenAI API call |
+| Submit content (deterministic + RAG) | 3-8s | Gemini API call |
 | Approve/reject | <50ms | Database write |
 | Get submission | <20ms | Database read |
 
@@ -416,12 +416,12 @@ app.add_middleware(
 
 ### Cost Analysis (per 1000 audits)
 ```
-OpenAI Costs:
+Gemini Costs:
 - Embeddings (text-embedding-3-small): $0.02 per 1M tokens
   → Guideline upload (5k tokens): $0.0001
   → Content audit (1k tokens per query): $0.00002
   
-- GPT-4o-mini: $0.15 per 1M input tokens, $0.60 per 1M output
+- gemini-3.5-flash-lite: $0.15 per 1M input tokens, $0.60 per 1M output
   → Audit analysis (500 input + 200 output tokens): $0.00019
   
 Total per audit: ~$0.0002 = $0.20 per 1000 audits
@@ -430,7 +430,7 @@ ChromaDB: Free (self-hosted)
 FastAPI: Free (open-source)
 Next.js: Free (Vercel has free tier)
 
-Estimated monthly cost for 50k audits: $10 OpenAI + $20 hosting = $30/mo
+Estimated monthly cost for 50k audits: $10 Gemini + $20 hosting = $30/mo
 ```
 
 ---
@@ -488,7 +488,7 @@ def test_upload_and_audit_flow():
 ```
 Replace:
   SQLite → PostgreSQL (better concurrency)
-  OpenAI → Self-hosted LLM (cost reduction)
+  Gemini → Self-hosted LLM (cost reduction)
   ChromaDB → Pinecone/Weaviate (managed vector DB)
   
 Add:
