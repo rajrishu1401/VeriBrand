@@ -203,7 +203,7 @@ export default function SubmitPage() {
   };
 
   const loadSampleGood = () => {
-    setContent(`Introducing our new marketing analytics platform.\n\nOur platform helps businesses track campaign performance with real-time insights. Start your 14-day trial today (no credit card required, terms and conditions apply).\n\nJoin over 5,000 businesses using our tools to improve their marketing strategy. Our feature set includes audience segmentation, A/B testing, and performance tracking.\n\nResults may vary based on your team size and configuration.`);
+    setContent(`Introducing our marketing analytics platform for TechCorp Solutions.\n\nOur platform helps businesses improve campaign ROI by an average of 23% (based on 2024 customer survey, 1,200 responses, self-reported by customers).\n\nJoin over 5,000 companies using TechCorp to streamline their workflows. Our feature set includes audience segmentation, A/B testing, and real-time performance tracking.\n\nTry our 14-day trial to see if TechCorp fits your needs. Results may vary based on your specific use case. Terms and conditions apply. No credit card required for trial.`);
   };
 
   const handleSubmit = async () => {
