@@ -7,7 +7,7 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface AuditFlag {
@@ -33,7 +33,7 @@ interface Guideline {
   uploaded_at: string;
 }
 
-// ─── Circular gauge ──────────────────────────────────────────────────────────
+// ─── Circular gauge ───────────────────────────────────────────────────────────
 function TrustGauge({ score }: { score: number }) {
   const [displayed, setDisplayed] = useState(0);
   const radius = 70;
@@ -60,33 +60,36 @@ function TrustGauge({ score }: { score: number }) {
   }, [score]);
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width={radius * 2 + stroke} height={radius * 2 + stroke} className="-rotate-90">
-        <circle
-          cx={radius + stroke / 2} cy={radius + stroke / 2} r={normalised}
-          fill="none" stroke="#e5e7eb" strokeWidth={stroke}
-        />
-        <circle
-          cx={radius + stroke / 2} cy={radius + stroke / 2} r={normalised}
-          fill="none" stroke={color} strokeWidth={stroke}
-          strokeDasharray={circumference} strokeDashoffset={progress}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.05s ease' }}
-        />
-      </svg>
-      <div className="text-5xl font-bold -mt-24" style={{ color }}>{displayed}</div>
-      <div className="text-sm text-gray-500 mt-1">out of 100</div>
-      <div className="text-sm font-semibold mt-1" style={{ color }}>{label}</div>
-      <div className="mt-6" />
+    <div className="flex flex-col items-center py-2">
+      <div className="relative flex items-center justify-center">
+        <svg width={radius * 2 + stroke} height={radius * 2 + stroke} className="-rotate-90">
+          <circle
+            cx={radius + stroke / 2} cy={radius + stroke / 2} r={normalised}
+            fill="none" stroke="#e5e7eb" strokeWidth={stroke}
+          />
+          <circle
+            cx={radius + stroke / 2} cy={radius + stroke / 2} r={normalised}
+            fill="none" stroke={color} strokeWidth={stroke}
+            strokeDasharray={circumference} strokeDashoffset={progress}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dashoffset 0.05s ease' }}
+          />
+        </svg>
+        <div className="absolute flex flex-col items-center">
+          <span className="text-4xl font-bold" style={{ color }}>{displayed}</span>
+          <span className="text-xs text-gray-500">out of 100</span>
+        </div>
+      </div>
+      <div className="text-sm font-semibold mt-3" style={{ color }}>{label}</div>
     </div>
   );
 }
 
 // ─── Animated loading steps ───────────────────────────────────────────────────
 const LOADING_STEPS = [
-  '🔍 Running deterministic checks...',
-  '🤖 Semantic RAG analysis...',
-  '📊 Calculating trust score...',
+  'Running deterministic checks...',
+  'Semantic RAG analysis via Gemini...',
+  'Calculating trust score...',
 ];
 
 function AuditingAnimation() {
@@ -115,10 +118,10 @@ function AuditingAnimation() {
 }
 
 // ─── Severity helpers ─────────────────────────────────────────────────────────
-function severityIcon(s: string) {
-  if (s === 'critical') return '⛔';
-  if (s === 'warning') return '⚠️';
-  return '💡';
+function severityDot(s: string) {
+  if (s === 'critical') return <span className="w-2 h-2 rounded-full bg-red-500 inline-block mt-1 shrink-0" />;
+  if (s === 'warning') return <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block mt-1 shrink-0" />;
+  return <span className="w-2 h-2 rounded-full bg-blue-400 inline-block mt-1 shrink-0" />;
 }
 
 function severityClasses(s: string) {
@@ -134,13 +137,13 @@ function severityBadge(s: string) {
 }
 
 // ─── Flag card ────────────────────────────────────────────────────────────────
-function FlagCard({ flag, idx }: { flag: AuditFlag; idx: number }) {
+function FlagCard({ flag }: { flag: AuditFlag; idx: number }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className={`rounded-lg p-4 ${severityClasses(flag.severity)}`}>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2">
-          <span className="text-lg">{severityIcon(flag.severity)}</span>
+          {severityDot(flag.severity)}
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-sm text-gray-900">{flag.issue_type}</span>
@@ -150,24 +153,24 @@ function FlagCard({ flag, idx }: { flag: AuditFlag; idx: number }) {
               <span className="text-xs text-gray-500">Confidence: {flag.confidence}</span>
             </div>
             {flag.flagged_text && (
-              <code className="mt-1 block text-xs bg-white/70 px-2 py-1 rounded text-gray-700">
-                "{flag.flagged_text}"
+              <code className="mt-1 block text-xs bg-white/70 px-2 py-1 rounded text-gray-800 font-mono">
+                &quot;{flag.flagged_text}&quot;
               </code>
             )}
             <p className="mt-1 text-sm text-gray-700">{flag.explanation}</p>
-            <p className="mt-1 text-xs text-gray-500 italic">📌 {flag.rule_citation}</p>
+            <p className="mt-1 text-xs text-gray-500 italic">Rule: {flag.rule_citation}</p>
           </div>
         </div>
         <button
           onClick={() => setExpanded(e => !e)}
-          className="text-xs text-indigo-600 hover:underline ml-2 whitespace-nowrap"
+          className="text-xs text-indigo-600 hover:underline ml-2 whitespace-nowrap shrink-0"
         >
           {expanded ? 'Hide fix ▲' : 'Show fix ▼'}
         </button>
       </div>
       {expanded && (
         <div className="mt-3 bg-green-50 border border-green-200 rounded p-3 text-sm text-green-800">
-          <span className="font-semibold">✅ Suggested fix: </span>{flag.suggested_fix}
+          <span className="font-semibold">Suggested fix: </span>{flag.suggested_fix}
         </div>
       )}
     </div>
@@ -223,7 +226,6 @@ export default function SubmitPage() {
     }
   };
 
-  // Group flags: deterministic (high confidence) vs semantic (medium/low)
   const deterministicFlags = result?.flags.filter(f => f.confidence === 'high') ?? [];
   const semanticFlags = result?.flags.filter(f => f.confidence !== 'high') ?? [];
   const critical = result?.flags.filter(f => f.severity === 'critical').length ?? 0;
@@ -255,17 +257,16 @@ export default function SubmitPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* ── Input Column ── */}
+          {/* Input Column */}
           <div>
             <div className="bg-white rounded-xl shadow-lg p-6 mb-6 space-y-4">
-              {/* Guideline selector */}
               {guidelines.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Audit Against Guideline</label>
                   <select
                     value={selectedGuideline}
                     onChange={e => setSelectedGuideline(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
                   >
                     {guidelines.map(g => (
                       <option key={g.id} value={g.id}>{g.filename}</option>
@@ -278,7 +279,7 @@ export default function SubmitPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Creator Name</label>
                 <input
                   type="text" value={creatorName} onChange={e => setCreatorName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900"
                   placeholder="Your name"
                 />
               </div>
@@ -287,7 +288,7 @@ export default function SubmitPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
                 <select
                   value={contentType} onChange={e => setContentType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
                 >
                   <option value="text">General Text</option>
                   <option value="blog_post">Blog Post</option>
@@ -302,7 +303,7 @@ export default function SubmitPage() {
                 <textarea
                   value={content} onChange={e => setContent(e.target.value)}
                   rows={12}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm text-gray-900 bg-white placeholder-gray-400"
                   placeholder="Paste your marketing content here..."
                 />
                 <div className="mt-1 text-xs text-gray-400">{content.length} characters</div>
@@ -323,26 +324,26 @@ export default function SubmitPage() {
                 onClick={handleSubmit} disabled={auditing || !content.trim()}
                 className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
-                {auditing ? 'Analyzing...' : '🚀 Run Compliance Audit'}
+                {auditing ? 'Analyzing...' : 'Run Compliance Audit'}
               </button>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-              <p className="font-semibold mb-2">🔬 How it works</p>
+              <p className="font-semibold mb-2">How it works</p>
               <ul className="space-y-1 text-xs">
-                <li>• Deterministic rules check banned words & patterns instantly</li>
+                <li>• Deterministic rules check banned words &amp; patterns instantly</li>
                 <li>• Semantic RAG retrieves relevant guideline sections via Gemini</li>
-                <li>• Gemini 3.x LLM audits tone, context & nuance violations</li>
+                <li>• Gemini LLM audits tone, context &amp; nuance violations</li>
                 <li>• Every flag carries an exact guideline citation</li>
               </ul>
             </div>
           </div>
 
-          {/* ── Results Column ── */}
+          {/* Results Column */}
           <div>
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-2 text-red-800 text-sm">
-                ⛔ {error}
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-red-800 text-sm">
+                {error}
               </div>
             )}
 
@@ -355,16 +356,15 @@ export default function SubmitPage() {
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Brand Trust Score</h3>
                   <TrustGauge score={result.brand_trust_score} />
 
-                  {/* Summary stats bar */}
                   {result.total_issues > 0 && (
-                    <div className="flex justify-center gap-4 mt-2 text-sm">
-                      {critical > 0 && <span className="flex items-center gap-1 text-red-600 font-semibold">⛔ {critical} Critical</span>}
-                      {warnings > 0 && <span className="flex items-center gap-1 text-yellow-600 font-semibold">⚠️ {warnings} Warnings</span>}
-                      {suggestions > 0 && <span className="flex items-center gap-1 text-blue-600 font-semibold">💡 {suggestions} Suggestions</span>}
+                    <div className="flex justify-center gap-4 mt-4 text-sm">
+                      {critical > 0 && <span className="flex items-center gap-1 text-red-600 font-semibold">{critical} Critical</span>}
+                      {warnings > 0 && <span className="flex items-center gap-1 text-yellow-600 font-semibold">{warnings} Warnings</span>}
+                      {suggestions > 0 && <span className="flex items-center gap-1 text-blue-600 font-semibold">{suggestions} Suggestions</span>}
                     </div>
                   )}
                   {result.total_issues === 0 && (
-                    <p className="text-green-600 font-semibold mt-2">✅ No issues found — content is compliant!</p>
+                    <p className="text-green-600 font-semibold mt-4">No issues found — content is compliant!</p>
                   )}
                 </div>
 
@@ -379,7 +379,7 @@ export default function SubmitPage() {
                       <div>
                         <div className="flex items-center gap-2 mb-3">
                           <div className="h-px flex-1 bg-gray-200" />
-                          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">📐 Deterministic Rules</span>
+                          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Deterministic Rules</span>
                           <div className="h-px flex-1 bg-gray-200" />
                         </div>
                         <div className="space-y-3">
@@ -392,7 +392,7 @@ export default function SubmitPage() {
                       <div>
                         <div className="flex items-center gap-2 mb-3">
                           <div className="h-px flex-1 bg-gray-200" />
-                          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">🤖 Gemini Semantic AI</span>
+                          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Gemini Semantic AI</span>
                           <div className="h-px flex-1 bg-gray-200" />
                         </div>
                         <div className="space-y-3">
@@ -411,7 +411,7 @@ export default function SubmitPage() {
                       href={`/review?id=${result.submission_id}`}
                       className="block w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-indigo-700 transition-colors text-center"
                     >
-                      Review & Approve/Reject →
+                      Review &amp; Approve/Reject
                     </Link>
                     <button
                       onClick={() => { setResult(null); setContent(''); }}
@@ -427,7 +427,9 @@ export default function SubmitPage() {
             {!result && !error && !auditing && (
               <div className="bg-white rounded-xl shadow-lg p-12 text-center">
                 <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-4xl">🔎</span>
+                  <svg className="w-10 h-10 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
                 <p className="text-gray-500">Submit content to see compliance audit results here</p>
               </div>
