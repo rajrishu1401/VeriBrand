@@ -234,7 +234,7 @@ function IndividualReview({ submissionId }: { submissionId: string }) {
 
   useEffect(() => {
     // Try API first, fall back to localStorage
-    fetch(`http://localhost:8000/api/submission/${submissionId}`)
+    fetch(`${API_BASE}/api/submission/${submissionId}`)
       .then(r => r.ok ? r.json() : null)
       .then(apiData => {
         if (apiData) {
