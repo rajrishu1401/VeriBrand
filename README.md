@@ -1,155 +1,149 @@
-# VeriBrand — AI-Powered Brand Governance Platform
+# VeriBrand — AI-Powered Enterprise Brand Governance Platform
 
-**Team KR8** | CodeZen India 2026 — Round 2
+**Team KR8** | CodeZen India 2026 — Final Round (Top 50 Finalist)
 
 | Member | Role | Email |
 |---|---|---|
-| Rishu Raj | Team Lead | rajrishu1401@gmail.com |
-| Kuldeep Chaudhary | Backend | kuldeepchaudhary.0904@gmail.com |
-| Krishna Bhist | Frontend | b.krishnaworks@gmail.com |
-| Daksh Mehrotra | AI/ML | mehrotradaksh2005@gmail.com |
+| Rishu Raj | Team Lead & Full-Stack Architect | rajrishu1401@gmail.com |
+| Kuldeep Chaudhary | Backend & Database Systems | kuldeepchaudhary.0904@gmail.com |
+| Krishna Bhist | Frontend & UI/UX Systems | b.krishnaworks@gmail.com |
+| Daksh Mehrotra | AI/ML & Multi-Modal Pipeline | mehrotradaksh2005@gmail.com |
 
 ---
 
-## Live Demo
+## Live Deployments & Repository
 
-| | URL |
+| Target | URL |
 |---|---|
-| **Frontend** | https://veri-brand-umber.vercel.app |
-| **Backend API** | https://veribrand-backend.onrender.com |
-| **Source Code** | https://github.com/rajrishu1401/VeriBrand |
+| **Live Web Application (Vercel)** | https://veri-brand-umber.vercel.app |
+| **Backend REST API (Render)** | https://veribrand-backend.onrender.com |
+| **Public Source Repository (GitHub)** | https://github.com/rajrishu1401/VeriBrand |
+| **Final Documentation PDF** | Available in repo root (`TeamKR8_Round3.pdf`) |
 
 ---
 
 ## What It Does
 
-VeriBrand instantly audits marketing content (ads, emails, social posts) against an organisation's uploaded brand guidelines — returning every violation with the **exact rule it breaks**, its severity level, and a suggested fix. A human brand manager then approves, rejects, or requests changes.
+VeriBrand is an automated brand governance platform that bridges the gap between marketing creativity and brand safety. By combining deterministic rule matching with Gemini 2.5 Flash RAG and Pillow multi-modal computer vision, VeriBrand audits marketing copy and visual creatives against uploaded brand guidelines — returning citation-anchored flags, mathematical contrast scores, and 1-click compliant rewrites.
 
-### Core Workflow
+### The 3 Promised Improvements Delivered in Round 3
+
+| # | Improvement | Implementation & Technical Depth |
+|---|---|---|
+| **1** | **Intent-Preserving AI Rewrites** | Automatically synthesizes compliant alternatives that satisfy all guidelines while preserving the creator's persuasive intent, tone, and value propositions. Features inline diff comparison and 1-click editor adoption. |
+| **2** | **Multi-Modal Visual Brand Auditing** | Ingests banners/ads (PNG, JPG, WebP), extracts dominant hex color palettes via Pillow color quantization, calculates mathematical WCAG 2.1 relative luminance contrast ratios ($CR = \frac{L_1 + 0.05}{L_2 + 0.05}$), and runs Gemini Vision for logo placement & OCR verification. |
+| **3** | **Living Guideline Feedback Loop** | Tracks human reviewer decisions (approvals vs rejections) against AI flags in real-time. When reviewers repeatedly override a specific rule flag (>50% override rate), VeriBrand alerts leadership that the rule is ambiguous, overly strict, or outdated. |
+
+---
+
+## Technical Architecture
 
 ```
-1. Upload brand guidelines (PDF or TXT)
-        ↓
-2. Submit content for audit (paste any text)
-        ↓
-   ┌─────────────────────────────────┐
-   │       Hybrid Audit Engine       │
-   │  Deterministic  +  Gemini RAG   │
-   │  (regex rules)    (semantic AI) │
-   └─────────────────────────────────┘
-        ↓
-3. Receive Trust Score + citation-anchored violations
-        ↓
-4. Brand manager: Approve / Reject / Request Changes
+                    ┌──────────────────────────────────────────────┐
+                    │          Client Layer (Next.js 14)           │
+                    │  App Router • Tailwind CSS • HTML5 Canvas    │
+                    └──────────────────────┬───────────────────────┘
+                                           │ JSON / Multipart
+                                           ▼
+                    ┌──────────────────────────────────────────────┐
+                    │            FastAPI Server (Python)           │
+                    │      Uvicorn • Pydantic Schema Validation    │
+                    └──────┬───────────────┬───────────────┬───────┘
+                           │               │               │
+            ┌──────────────▼────┐   ┌──────▼──────┐  ┌─────▼───────────────┐
+            │   Deterministic   │   │  Gemini RAG │  │ Multi-Modal Vision  │
+            │   Engine (Regex)  │   │ 2.5 Flash   │  │ Pillow + WCAG Math  │
+            │  0% Hallucination │   │ Nuance/Tone │  │ Hex Extraction / OCR│
+            └──────────────┬────┘   └──────┬──────┘  └─────┬───────────────┘
+                           │               │               │
+                           └───────────────┼───────────────┘
+                                           ▼
+                    ┌──────────────────────────────────────────────┐
+                    │              SQLite Database                 │
+                    │ Submissions • Flags • Reviews • Feedback Loop│
+                    └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## Tech Stack
+## Tech Stack & Libraries
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS |
-| Backend | FastAPI (Python 3.11+), Uvicorn |
-| Database | SQLite via SQLAlchemy |
-| Vector DB | ChromaDB (persistent) |
-| AI — Embeddings | Google Gemini `gemini-embedding-001` (3072-dim) |
-| AI — Generation | Google Gemini `gemini-3.5-flash-lite` |
-| Deployment | Render (backend) + Vercel (frontend) |
-
----
-
-## Features
-
-- **Guideline Upload** — PDF and TXT parsing with text chunking
-- **Deterministic Audit** — 15+ rule types: banned words, superlatives, ALL CAPS, missing disclaimers
-- **Gemini Semantic RAG** — Vector similarity search + LLM analysis for tone and context violations
-- **Citation-Anchored Flags** — Every violation includes the exact rule, section reference, and severity
-- **Trust Score** — 0–100 score: `100 - critical×20 - warning×7 - suggestion×2`
-- **Approval Workflow** — Approve / Reject / Request Changes with reviewer notes
-- **Review Queue** — Filterable table of all submissions with status badges
-- **Dashboard Analytics** — Live metrics: total audits, average trust score, top violation types
-- **Export Reports** — Download full audit as JSON
-
----
-
-## Local Setup
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- Gemini API key → [aistudio.google.com](https://aistudio.google.com/app/apikey)
-
-### Backend
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-
-copy .env.example .env
-# Edit .env → set GEMINI_API_KEY=your_key_here
-
-uvicorn main:app --reload --port 8000
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-
-echo NEXT_PUBLIC_API_URL=http://localhost:8000 > .env.local
-
-npm run dev -- --port 8080
-```
-
-Open **http://localhost:8080**
+- **Frontend:** Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, HTML5 Canvas API (dynamic mock generation). Deployed on Vercel.
+- **Backend:** FastAPI, Python 3.13, Uvicorn, Pydantic v2. Deployed on Render with automated keep-alive.
+- **AI & LLM:** Google Gemini 2.5 Flash via `google-genai` SDK with strict JSON response schemas and temperature 0.1 for high-precision governance; Gemini Vision for multi-modal analysis.
+- **Computer Vision & Math:** Pillow (PIL) for image quantization and dominant hex clustering; WCAG 2.1 relative luminance contrast math ($L = 0.2126R + 0.7152G + 0.0722B$).
+- **Database:** SQLite with relational schema linking submissions, audit flags, reviewer actions, and policy override analytics.
 
 ---
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | Health check |
-| `POST` | `/api/upload-guideline` | Upload brand guidelines |
-| `POST` | `/api/submit-content` | Submit content for audit |
-| `GET` | `/api/submissions` | List all submissions |
-| `GET` | `/api/submission/{id}` | Get single submission with flags |
-| `POST` | `/api/approve` | Record approval decision |
-| `GET` | `/api/guidelines` | List uploaded guidelines |
-| `GET` | `/api/export/{id}` | Download audit report as JSON |
-| `GET` | `/api/dashboard/stats` | Aggregated metrics |
+### Core Governance & Guidelines
+- `GET /` — Health check (supports both `GET` and `HEAD` for monitoring).
+- `POST /api/upload-guidelines` — Ingest PDF/TXT brand guidelines into vector and semantic storage.
+- `GET /api/guidelines` — Retrieve all uploaded brand guidelines.
+
+### Content Auditing & AI Rewriting (Round 3)
+- `POST /api/submit-content` — Audit marketing copy (returns Brand Trust Score 0–100, citation flags, and full intent-preserving rewrite).
+- `POST /api/rewrite` — Generate standalone brand-compliant copy revision from flagged draft.
+- `POST /api/audit-image` — **(Round 3 Feature)** Ingests creative images, extracts dominant hex colors, checks approved/prohibited palettes, computes WCAG 2.1 contrast, inspects logo presence, and performs OCR text auditing.
+
+### Reviewer Workflow & Feedback Loop (Round 3)
+- `GET /api/submissions` — Retrieve submission history with flags and status.
+- `GET /api/submission/{id}` — Fetch detailed submission report with audit flags and original content.
+- `POST /api/approve` — Record reviewer decision (`approved`, `rejected`, `request_changes`) with feedback notes.
+- `GET /api/export/{id}` — Export audit report as standardized JSON.
+- `GET /api/dashboard/stats` — Real-time telemetry: audit counts, average trust score, and top violations.
+- `GET /api/governance/feedback-loop` — **(Round 3 Feature)** Reviewer override rate analytics per rule citation and ambiguous guideline alerts.
 
 ---
 
-## Round 3 Improvements
+## Local Development Setup
 
-1. **Intent-Preserving AI Rewrites** — Automatically generate a corrected version of flagged content that passes all brand rules while preserving the creator's voice and intent for 1-click adoption.
-2. **Multi-Modal Visual Brand Auditing** — Expand from text-only to image auditing: extract dominant color palettes (hex verification), check logo placement & clear space, and calculate WCAG text-overlay contrast ratios.
-3. **Living Guideline Feedback Loop** — Track reviewer approval/rejection decisions against AI flags to detect patterns and alert leadership when guidelines are ambiguous or outdated.
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- Gemini API Key ([Google AI Studio](https://aistudio.google.com/))
+
+### 1. Backend Setup
+```bash
+cd backend
+python -m venv venv
+
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
+pip install -r requirements.txt
+
+# Configure environment:
+copy .env.example .env
+# Add your GEMINI_API_KEY inside backend/.env
+
+# Run server:
+uvicorn main:app --reload --port 8000
+```
+Backend runs at `http://localhost:8000` (Interactive Swagger docs at `http://localhost:8000/docs`).
+
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Frontend runs at `http://localhost:3000`.
 
 ---
 
-## Project Structure
+## Testing & Quality Assurance
 
-```
-VeriBrand/
-├── backend/
-│   ├── main.py           # FastAPI app + all endpoints
-│   ├── rag_engine.py     # Gemini embeddings + ChromaDB + semantic audit
-│   ├── deterministic.py  # Regex rule extractor + checker
-│   ├── database.py       # SQLite schema + CRUD
-│   ├── requirements.txt
-│   └── .env.example
-├── docs/
-│   └── sample_brand_guideline.txt
-├── frontend/
-│   └── app/
-│       ├── page.tsx      # Home dashboard
-│       ├── upload/       # Guideline upload
-│       ├── submit/       # Content audit
-│       └── review/       # Approval workflow
-├── render.yaml           # Render backend deploy config
-└── README.md
-```
+- **Unit & Property Tests:** Deterministic keyword casing, smart replacements, WCAG luminance calculations.
+- **Visual Auditing Verification:** Tested with compliant banner creatives (`#1E1B4B` / `#4F46E5`, 11.4:1 contrast) vs non-compliant banners (`#00FF00` neon, 1.3:1 contrast).
+- **End-to-End Resilience:** Empty inputs, cold restart handling, and private/incognito session testing.
+
+---
+
+## CodeZen India 2026 — Team KR8
+- **Project Name:** VeriBrand
+- **Submission Type:** Round 3 Final Product
