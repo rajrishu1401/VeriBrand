@@ -393,7 +393,19 @@ async def approve_content(request: ApprovalRequest):
 async def get_dashboard_stats():
     """Get governance analytics for dashboard"""
     stats = db.get_analytics()
+    feedback = db.get_living_guideline_feedback_loop()
+    stats["feedback_loop"] = feedback
     return stats
+
+
+@app.get("/api/governance/feedback-loop")
+async def get_feedback_loop():
+    """
+    Round 3 Feature: Living Guideline Feedback Loop
+    Identifies high-override rules where human brand managers frequently dismiss flags,
+    alerting leadership to ambiguous, outdated, or misaligned guidelines.
+    """
+    return db.get_living_guideline_feedback_loop()
 
 
 @app.get("/api/guidelines")
