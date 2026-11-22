@@ -273,7 +273,7 @@ function IndividualReview({ submissionId }: { submissionId: string }) {
   const handleExport = async () => {
     const id = data?.submission_id ?? data?.id;
     if (!id) return;
-    const r = await fetch(`http://localhost:8000/api/export/${id}`);
+    const r = await fetch(`${API_BASE}/api/export/${id}`);
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -377,7 +377,7 @@ function IndividualReview({ submissionId }: { submissionId: string }) {
         </div>
 
         {/* Round 3: Intent-Preserving Compliant Rewrite Preview */}
-        {reviewData.rewritten_content && (
+        {data.rewritten_content && (
           <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl shadow-lg p-6 border border-emerald-200">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -391,7 +391,7 @@ function IndividualReview({ submissionId }: { submissionId: string }) {
               AI-generated brand-compliant revision preserving creator voice and persuasive intent.
             </p>
             <div className="bg-white rounded-lg p-4 border border-emerald-200 text-sm text-gray-800 font-mono whitespace-pre-wrap">
-              {reviewData.rewritten_content}
+              {data.rewritten_content}
             </div>
           </div>
         )}

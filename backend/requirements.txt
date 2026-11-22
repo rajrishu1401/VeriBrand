@@ -13,9 +13,10 @@ google-genai
 # Data validation
 pydantic
 
-# PDF processing (for guideline upload)
+# PDF and Image processing (for guideline and visual audit)
 PyPDF2
 python-docx
+Pillow
 
 # Environment variables
 python-dotenv

@@ -198,6 +198,33 @@ Before publishing any marketing content, verify:
 - Spot checks on social media posts
 
 
+SECTION 12: VISUAL BRAND & ASSET GUIDELINES
+-------------------------------------------
+
+12.1 Approved Brand Color Palette
+All visual marketing assets, banners, and ad creatives must adhere to the official palette:
+- Primary Brand Indigo: #4F46E5 (rgb: 79, 70, 229)
+- Deep Navy: #1E1B4B (rgb: 30, 27, 75)
+- Accent Violet: #7C3AED (rgb: 124, 58, 237)
+- Slate Dark: #1E293B (rgb: 30, 41, 59)
+- Surface Light: #F8FAFC (rgb: 248, 250, 252)
+
+Prohibited background colors:
+- Fluorescent Neons (e.g., #00FF00, #FF00FF)
+- Distracting saturated red (#FF0000) for non-error marketing banners
+
+12.2 Accessibility & WCAG Contrast Standards
+- Any text overlaid on image backgrounds MUST meet WCAG 2.1 AA accessibility standards:
+  - Normal body text: minimum contrast ratio of 4.5:1
+  - Large / headline text (18pt+ or bold): minimum contrast ratio of 3.0:1
+- Low-contrast text overlay (e.g., light gray on white, or yellow on white) is strictly prohibited.
+
+12.3 Logo Integrity & Sizing
+- Official brand mark must be unobstructed with clear space on all sides.
+- Do not invert, distort, rotate, or alter official brand logo proportions.
+- Brand assets must maintain high visual resolution with no pixelation.
+
+
 APPENDIX A: QUICK REFERENCE
 ----------------------------
 

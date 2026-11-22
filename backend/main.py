@@ -3,7 +3,7 @@ VeriBrand Backend API - FastAPI Server
 Team KR8 - CodeZen India 2026 Round 2
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -18,6 +18,7 @@ load_dotenv()
 from database import Database
 from rag_engine import RAGEngine
 from deterministic import DeterministicEngine
+from visual_engine import VisualBrandEngine
 
 app = FastAPI(title="VeriBrand API", version="1.0.0")
 
@@ -34,6 +35,7 @@ app.add_middleware(
 db = Database()
 rag_engine = RAGEngine()
 deterministic_engine = DeterministicEngine()
+visual_engine = VisualBrandEngine()
 
 
 @app.on_event("startup")
@@ -95,6 +97,33 @@ class ApprovalRequest(BaseModel):
     submission_id: str
     action: str  # approve, reject, request_changes
     reviewer_comment: Optional[str] = None
+
+
+class ColorItem(BaseModel):
+    hex: str
+    rgb: List[int]
+    percentage: float
+
+
+class WCAGResult(BaseModel):
+    contrast_ratio: float
+    wcag_aa_pass: bool
+    wcag_aaa_pass: bool
+    background_hex: Optional[str] = None
+    foreground_hex: Optional[str] = None
+
+
+class VisualAuditResponse(BaseModel):
+    submission_id: str
+    image_dimensions: str
+    dominant_palette: List[ColorItem]
+    wcag_analysis: WCAGResult
+    ocr_text: Optional[str] = ""
+    logo_detected: bool = False
+    logo_assessment: Optional[str] = ""
+    brand_trust_score: int
+    flags: List[AuditFlag]
+    total_issues: int
 
 
 # ==================== API Endpoints ====================
@@ -274,6 +303,60 @@ async def rewrite_content(request: RewriteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/audit-image", response_model=VisualAuditResponse)
+async def audit_image_endpoint(
+    file: UploadFile = File(...),
+    creator_name: str = Form("Creator")
+):
+    """
+    Round 3 Feature: Multi-Modal Visual Brand Audit
+    Analyzes marketing visuals (PNG, JPG, WebP) for:
+    - Dominant hex palette vs approved brand colors
+    - WCAG 2.1 AA/AAA text overlay contrast ratio
+    - Logo placement, orientation, and clear space
+    - Embedded text compliance (OCR via Gemini Vision)
+    """
+    try:
+        content = await file.read()
+        filename = file.filename or "creative_asset.png"
+        mime_type = file.content_type or "image/png"
+        
+        # Run visual audit engine
+        result = visual_engine.audit_image(content, mime_type=mime_type)
+        
+        # Store in database as an image submission
+        submission_id = db.store_submission(
+            f"Visual Asset: {filename} ({result['image_dimensions']})",
+            content_type="image",
+            creator_name=creator_name
+        )
+        
+        db.store_audit_results(
+            submission_id,
+            result["flags"],
+            result["brand_trust_score"],
+            rewritten_content=result.get("ocr_text")
+        )
+        
+        return VisualAuditResponse(
+            submission_id=submission_id,
+            image_dimensions=result["image_dimensions"],
+            dominant_palette=[ColorItem(**c) for c in result["dominant_palette"]],
+            wcag_analysis=WCAGResult(**result["wcag_analysis"]),
+            ocr_text=result.get("ocr_text", ""),
+            logo_detected=result.get("logo_detected", False),
+            logo_assessment=result.get("logo_assessment", "Not analyzed"),
+            brand_trust_score=result["brand_trust_score"],
+            flags=[AuditFlag(**f) for f in result["flags"]],
+            total_issues=result["total_issues"]
+        )
+    except Exception as e:
+        import traceback
+        print(f"ERROR in audit_image_endpoint: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/submission/{submission_id}")
 async def get_submission(submission_id: str):
     """Get submission details and audit results"""
@@ -303,45 +386,6 @@ async def approve_content(request: ApprovalRequest):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/rewrite", response_model=RewriteResponse)
-async def rewrite_content(request: RewriteRequest):
-    """
-    Round 3 Feature: Intent-Preserving Brand Compliant Rewrite
-    Takes draft marketing content and returns a 100% compliant version
-    preserving the author's persuasive intent and core message.
-    """
-    try:
-        content = request.content
-        if not content.strip():
-            raise HTTPException(status_code=400, detail="Content cannot be empty")
-
-        # Run checks to identify flags
-        det_flags = deterministic_engine.check(content)
-        sem_flags = []
-        guideline_id = request.guideline_id or db.get_latest_guideline_id() or "default"
-        try:
-            sem_flags = rag_engine.check_content(content, guideline_id=guideline_id)
-        except Exception as e:
-            print(f"Semantic audit error in rewrite: {e}")
-
-        all_flags = det_flags + sem_flags
-        
-        rewritten = rag_engine.generate_intent_preserving_rewrite(content, all_flags, guideline_id=guideline_id)
-        
-        return RewriteResponse(
-            original_content=content,
-            rewritten_content=rewritten,
-            total_issues_fixed=len(all_flags)
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        import traceback
-        print(f"ERROR in rewrite_content: {str(e)}")
-        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
