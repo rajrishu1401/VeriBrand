@@ -15,7 +15,8 @@
 
 | Target | URL |
 |---|---|
-| **Live Web Application (Vercel)** | https://veri-brand-umber.vercel.app |
+| **Live Production Web App (Custom Domain)** | **https://veribrand.xyz** |
+| **Vercel Mirror Deployment** | https://veri-brand-umber.vercel.app |
 | **Backend REST API (Render)** | https://veribrand-backend.onrender.com |
 | **Public Source Repository (GitHub)** | https://github.com/rajrishu1401/VeriBrand |
 | **Final Documentation PDF** | Available in repo root (`TeamKR8_Round3.pdf`) |
