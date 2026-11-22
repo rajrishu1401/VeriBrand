@@ -306,7 +306,8 @@ async def rewrite_content(request: RewriteRequest):
 @app.post("/api/audit-image", response_model=VisualAuditResponse)
 async def audit_image_endpoint(
     file: UploadFile = File(...),
-    creator_name: str = Form("Creator")
+    creator_name: str = Form("Creator"),
+    guideline_id: Optional[str] = Form(None)
 ):
     """
     Round 3 Feature: Multi-Modal Visual Brand Audit
@@ -314,15 +315,26 @@ async def audit_image_endpoint(
     - Dominant hex palette vs approved brand colors
     - WCAG 2.1 AA/AAA text overlay contrast ratio
     - Logo placement, orientation, and clear space
-    - Embedded text compliance (OCR via Gemini Vision)
+    - Embedded text compliance (OCR via Gemini Vision against selected guideline)
     """
     try:
         content = await file.read()
         filename = file.filename or "creative_asset.png"
         mime_type = file.content_type or "image/png"
         
+        # Retrieve guideline text if available
+        guideline_text = None
+        target_gid = guideline_id or db.get_latest_guideline_id()
+        if target_gid:
+            g = db.get_guideline(target_gid)
+            if g and g.get("content"):
+                try:
+                    guideline_text = g["content"].decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+        
         # Run visual audit engine
-        result = visual_engine.audit_image(content, mime_type=mime_type)
+        result = visual_engine.audit_image(content, mime_type=mime_type, guidelines_text=guideline_text)
         
         # Store in database as an image submission
         submission_id = db.store_submission(

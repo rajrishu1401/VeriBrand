@@ -200,44 +200,48 @@ class VisualBrandEngine:
             "flags": flags
         }
 
-    def audit_visual_semantic(self, image_bytes: bytes, mime_type: str = "image/png") -> Dict:
+    def audit_visual_semantic(self, image_bytes: bytes, mime_type: str = "image/png", guidelines_text: Optional[str] = None) -> Dict:
         """
         Use Gemini Multi-Modal Vision to audit image for:
         - OCR text extraction and text compliance
         - Logo detection and clear space
-        - Visual layout and guideline conformance
+        - Visual layout and guideline conformance against active guideline
         """
         if not self.client:
             return {"ocr_text": "", "logo_detected": False, "flags": []}
 
-        prompt = """You are an expert visual brand governance auditor.
-Analyze the provided marketing image against these brand guidelines:
+        guideline_context = ""
+        if guidelines_text and guidelines_text.strip():
+            guideline_context = f"\nACTIVE BRAND GUIDELINE EXCERPT:\n{guidelines_text[:3000]}\n"
+
+        prompt = f"""You are an expert visual brand governance auditor.
+Analyze the provided marketing image against brand guidelines:
 - Section 12.1: Approved Brand Colors (Indigo #4F46E5, Deep Navy #1E1B4B, Violet #7C3AED, Slate #1E293B, Off-White #F8FAFC). Banned: fluorescent neons, aggressive reds.
 - Section 12.2: WCAG 2.1 text contrast (minimum 4.5:1). Overlaid text must be legible with clear backgrounds.
 - Section 12.3: Logo integrity. Logo must be clear, unobstructed, not distorted or rotated.
 - Section 2-3: Marketing copy embedded in image must not contain banned guarantees ("100%", "guaranteed"), superlatives ("best"), or missing disclaimers.
-
+{guideline_context}
 TASK:
 1. Extract any readable text embedded in the image (OCR).
 2. Check if a logo is present, clear, and well-positioned.
 3. Identify any brand compliance issues in the image.
 
 Return ONLY a valid JSON object in this exact schema:
-{
+{{
   "ocr_text": "all extracted text found in image",
   "logo_detected": true or false,
   "logo_assessment": "brief assessment of logo placement and clear space",
   "flags": [
-    {
+    {{
       "issue_type": "...",
       "severity": "critical" or "warning" or "suggestion",
       "flagged_text": "...",
       "rule_citation": "...",
       "explanation": "...",
       "suggested_fix": "..."
-    }
+    }}
   ]
-}
+}}
 
 If no violations exist, return "flags": [].
 """
@@ -264,7 +268,7 @@ If no violations exist, return "flags": [].
             print(f"Gemini Vision audit skipped/failed: {e}")
             return {"ocr_text": "", "logo_detected": False, "flags": []}
 
-    def audit_image(self, image_bytes: bytes, mime_type: str = "image/png") -> Dict:
+    def audit_image(self, image_bytes: bytes, mime_type: str = "image/png", guidelines_text: Optional[str] = None) -> Dict:
         """
         Complete Hybrid Visual Audit:
         1. Deterministic Dominant Color Extraction (PIL)
@@ -289,7 +293,7 @@ If no violations exist, return "flags": [].
         contrast_flags = wcag_result.get("flags", [])
 
         # 4. Gemini Multi-Modal Vision
-        semantic_result = self.audit_visual_semantic(image_bytes, mime_type=mime_type)
+        semantic_result = self.audit_visual_semantic(image_bytes, mime_type=mime_type, guidelines_text=guidelines_text)
         semantic_flags = semantic_result.get("flags", [])
 
         # Combine all flags

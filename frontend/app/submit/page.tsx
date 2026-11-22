@@ -451,6 +451,9 @@ export default function SubmitPage() {
     const formData = new FormData();
     formData.append('file', imageFile);
     formData.append('creator_name', creatorName || 'Visual Designer');
+    if (selectedGuideline) {
+      formData.append('guideline_id', selectedGuideline);
+    }
 
     try {
       const response = await fetch(`${API_BASE}/api/audit-image`, {
@@ -838,6 +841,23 @@ export default function SubmitPage() {
                     PNG, JPG, WebP
                   </span>
                 </div>
+
+                {guidelines.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                      Audit Against Guideline
+                    </label>
+                    <select
+                      value={selectedGuideline}
+                      onChange={e => setSelectedGuideline(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
+                    >
+                      {guidelines.map(g => (
+                        <option key={g.id} value={g.id}>{g.filename}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">

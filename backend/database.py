@@ -106,6 +106,17 @@ class Database:
         row = cursor.fetchone()
         conn.close()
         return row["id"] if row else None
+
+    def get_guideline(self, guideline_id: str) -> Optional[Dict]:
+        """Get guideline by ID"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, filename, content, uploaded_at FROM guidelines WHERE id = ?", (guideline_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return dict(row)
     
     def store_submission(self, content: str, content_type: str, creator_name: str) -> str:
         """Store content submission"""
