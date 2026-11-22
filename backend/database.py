@@ -62,9 +62,21 @@ class Database:
                 explanation TEXT NOT NULL,
                 suggested_fix TEXT NOT NULL,
                 confidence TEXT NOT NULL,
+                replacement_text TEXT,
                 FOREIGN KEY (submission_id) REFERENCES submissions(id)
             )
         """)
+
+        # Safely migrate existing databases if columns do not exist
+        try:
+            cursor.execute("ALTER TABLE audit_flags ADD COLUMN replacement_text TEXT")
+        except Exception:
+            pass
+            
+        try:
+            cursor.execute("ALTER TABLE submissions ADD COLUMN rewritten_content TEXT")
+        except Exception:
+            pass
         
         conn.commit()
         conn.close()
@@ -112,15 +124,15 @@ class Database:
         
         return submission_id
     
-    def store_audit_results(self, submission_id: str, flags: List[Dict], trust_score: int):
-        """Store audit flags for a submission"""
+    def store_audit_results(self, submission_id: str, flags: List[Dict], trust_score: int, rewritten_content: Optional[str] = None):
+        """Store audit flags and optional full rewritten content for a submission"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # Update trust score
+        # Update trust score and rewritten content
         cursor.execute(
-            "UPDATE submissions SET trust_score = ? WHERE id = ?",
-            (trust_score, submission_id)
+            "UPDATE submissions SET trust_score = ?, rewritten_content = ? WHERE id = ?",
+            (trust_score, rewritten_content, submission_id)
         )
         
         # Insert flags
@@ -128,8 +140,8 @@ class Database:
             cursor.execute("""
                 INSERT INTO audit_flags 
                 (submission_id, issue_type, severity, flagged_text, rule_citation, 
-                 explanation, suggested_fix, confidence)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 explanation, suggested_fix, confidence, replacement_text)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 submission_id,
                 flag['issue_type'],
@@ -138,7 +150,8 @@ class Database:
                 flag['rule_citation'],
                 flag['explanation'],
                 flag['suggested_fix'],
-                flag['confidence']
+                flag['confidence'],
+                flag.get('replacement_text')
             ))
         
         conn.commit()
@@ -163,6 +176,13 @@ class Database:
         
         conn.close()
         
+        # Safe extraction of rewritten_content if column exists
+        rewritten = None
+        try:
+            rewritten = submission["rewritten_content"]
+        except Exception:
+            rewritten = None
+
         return {
             "id": submission["id"],
             "content": submission["content"],
@@ -172,6 +192,7 @@ class Database:
             "trust_score": submission["trust_score"],
             "submitted_at": submission["submitted_at"],
             "reviewer_comment": submission["reviewer_comment"],
+            "rewritten_content": rewritten,
             "flags": [dict(flag) for flag in flags],
             "total_issues": len(flags)
         }

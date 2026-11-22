@@ -17,6 +17,7 @@ interface AuditFlag {
   rule_citation: string;
   explanation: string;
   suggested_fix: string;
+  replacement_text?: string;
   confidence: string;
 }
 
@@ -25,6 +26,7 @@ interface AuditResponse {
   brand_trust_score: number;
   flags: AuditFlag[];
   total_issues: number;
+  rewritten_content?: string;
 }
 
 interface Guideline {
@@ -137,7 +139,7 @@ function severityBadge(s: string) {
 }
 
 // ─── Flag card ────────────────────────────────────────────────────────────────
-function FlagCard({ flag }: { flag: AuditFlag; idx: number }) {
+function FlagCard({ flag, idx, onApplyFix }: { flag: AuditFlag; idx: number; onApplyFix?: (flag: AuditFlag) => void }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className={`rounded-lg p-4 ${severityClasses(flag.severity)}`}>
@@ -169,8 +171,18 @@ function FlagCard({ flag }: { flag: AuditFlag; idx: number }) {
         </button>
       </div>
       {expanded && (
-        <div className="mt-3 bg-green-50 border border-green-200 rounded p-3 text-sm text-green-800">
-          <span className="font-semibold">Suggested fix: </span>{flag.suggested_fix}
+        <div className="mt-3 bg-green-50 border border-green-200 rounded p-3 text-sm text-green-800 space-y-2">
+          <div>
+            <span className="font-semibold">Suggested fix: </span>{flag.suggested_fix}
+          </div>
+          {onApplyFix && flag.flagged_text && (
+            <button
+              onClick={() => onApplyFix(flag)}
+              className="inline-flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded shadow-sm transition-colors"
+            >
+              <span>Apply Fix</span>
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -185,6 +197,8 @@ export default function SubmitPage() {
   const [auditing, setAuditing] = useState(false);
   const [result, setResult] = useState<AuditResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showRewriteDiff, setShowRewriteDiff] = useState(false);
   const [guidelines, setGuidelines] = useState<Guideline[]>([]);
   const [selectedGuideline, setSelectedGuideline] = useState<string>('');
 
@@ -200,15 +214,38 @@ export default function SubmitPage() {
 
   const loadSampleBad = () => {
     setContent(`Introducing the BEST marketing tool you'll ever need!\n\nOur revolutionary platform GUARANTEES 100% success for your campaigns. It's absolutely FREE with no hidden costs - never worry about budget constraints again!\n\nJoin thousands of satisfied customers who have experienced unprecedented growth. We're the #1 choice for marketing professionals worldwide, and our unmatched features will transform your business overnight.\n\nGet started today and see results immediately!`);
+    setSuccessMsg(null);
   };
 
   const loadSampleGood = () => {
     setContent(`TechCorp Analytics Platform\n\nOur marketing analytics platform helps businesses improve campaign ROI by an average of 23% (Source: TechCorp 2024 Customer Survey, n=1,200 responses, self-reported, conducted January-March 2024).\n\nKey capabilities include audience segmentation, A/B testing, and real-time performance dashboards. Over 5,000 companies use TechCorp to manage their marketing workflows.\n\nStart your 14-day pilot to evaluate fit for your team. Results may vary based on your specific use case. Terms and conditions apply. No credit card required for trial.`);
+    setSuccessMsg(null);
+  };
+
+  const handleApplySingleFix = (flag: AuditFlag) => {
+    if (!flag.flagged_text) return;
+    const rep = flag.replacement_text || flag.suggested_fix;
+    if (!rep) return;
+
+    if (content.includes(flag.flagged_text)) {
+      setContent(prev => prev.replace(flag.flagged_text, rep));
+      setSuccessMsg(`Applied fix: Replaced "${flag.flagged_text}" with "${rep}". Re-run audit to view updated score!`);
+    } else {
+      const regex = new RegExp(flag.flagged_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      setContent(prev => prev.replace(regex, rep));
+      setSuccessMsg(`Applied fix: "${rep}". Re-run audit to view updated score!`);
+    }
+  };
+
+  const handleApplyFullRewrite = (rewritten: string) => {
+    setContent(rewritten);
+    setSuccessMsg("✨ Entire copy updated with the 100% brand-compliant version! Click 'Run Compliance Audit' to see your new score.");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async () => {
     if (!content.trim()) { setError('Please enter content to audit'); return; }
-    setAuditing(true); setError(null); setResult(null);
+    setAuditing(true); setError(null); setResult(null); setSuccessMsg(null);
     try {
       const response = await fetch(`${API_BASE}/api/submit-content`, {
         method: 'POST',
@@ -259,6 +296,19 @@ export default function SubmitPage() {
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Input Column */}
           <div>
+            {successMsg && (
+              <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-4 mb-6 text-emerald-900 shadow-sm flex items-start justify-between">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">✓</span>
+                  <div>
+                    <p className="font-semibold text-sm">Editor Content Updated</p>
+                    <p className="text-xs text-emerald-800 mt-0.5">{successMsg}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSuccessMsg(null)} className="text-xs text-emerald-700 hover:text-emerald-900 font-medium">✕</button>
+              </div>
+            )}
+
             <div className="bg-white rounded-xl shadow-lg p-6 mb-6 space-y-4">
               {guidelines.length > 0 && (
                 <div>
@@ -369,6 +419,56 @@ export default function SubmitPage() {
                   )}
                 </div>
 
+                {/* Round 3 Delivered: Intent-Preserving AI Rewrite Card */}
+                {result.rewritten_content && result.total_issues > 0 && (
+                  <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 border-2 border-indigo-200 rounded-xl shadow-md p-6 space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          Round 3 Feature
+                        </span>
+                        <h4 className="text-base font-bold text-gray-900">
+                          ✨ Intent-Preserving Compliant Rewrite
+                        </h4>
+                      </div>
+                      <button
+                        onClick={() => setShowRewriteDiff(!showRewriteDiff)}
+                        className="text-xs text-indigo-700 font-semibold hover:underline bg-white/70 px-2.5 py-1 rounded-md border border-indigo-200"
+                      >
+                        {showRewriteDiff ? 'Hide Diff Comparison ▲' : 'Compare Original vs Rewrite ▼'}
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-gray-600">
+                      VeriBrand transformed your copy to satisfy all brand guidelines while preserving your persuasive voice, value propositions, and messaging intent.
+                    </p>
+
+                    {showRewriteDiff ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-red-50/70 border border-red-200 rounded-lg p-3">
+                          <span className="font-bold text-red-800 block mb-1">Original Draft (With Violations):</span>
+                          <p className="text-gray-700 font-mono whitespace-pre-wrap">{content}</p>
+                        </div>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <span className="font-bold text-green-800 block mb-1">Compliant Rewrite (Ready to Use):</span>
+                          <p className="text-gray-800 font-mono whitespace-pre-wrap">{result.rewritten_content}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white/90 border border-indigo-200 rounded-lg p-3 text-xs text-gray-800 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                        {result.rewritten_content}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => handleApplyFullRewrite(result.rewritten_content!)}
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-2.5 px-4 rounded-lg text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                    >
+                      <span>✨ Apply 1-Click Compliant Rewrite to Editor</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Grouped Flags */}
                 {result.flags.length > 0 && (
                   <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
@@ -384,7 +484,9 @@ export default function SubmitPage() {
                           <div className="h-px flex-1 bg-gray-200" />
                         </div>
                         <div className="space-y-3">
-                          {deterministicFlags.map((flag, i) => <FlagCard key={i} flag={flag} idx={i} />)}
+                          {deterministicFlags.map((flag, i) => (
+                            <FlagCard key={i} flag={flag} idx={i} onApplyFix={handleApplySingleFix} />
+                          ))}
                         </div>
                       </div>
                     )}
@@ -397,7 +499,9 @@ export default function SubmitPage() {
                           <div className="h-px flex-1 bg-gray-200" />
                         </div>
                         <div className="space-y-3">
-                          {semanticFlags.map((flag, i) => <FlagCard key={i} flag={flag} idx={i} />)}
+                          {semanticFlags.map((flag, i) => (
+                            <FlagCard key={i} flag={flag} idx={i} onApplyFix={handleApplySingleFix} />
+                          ))}
                         </div>
                       </div>
                     )}

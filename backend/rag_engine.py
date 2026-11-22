@@ -215,6 +215,7 @@ For each DEFINITIVE violation found, provide:
 3. rule_citation: Which guideline rule was violated (use the Rule number provided above)
 4. severity: "high" for explicit rule breaks, "medium" for missing required elements, "low" for style issues
 5. suggestion: Specific fix aligned with the exact guideline wording
+6. replacement_text: The exact short compliant replacement snippet that should substitute the problematic wording while preserving intent
 
 Return ONLY valid JSON array format:
 [
@@ -223,7 +224,8 @@ Return ONLY valid JSON array format:
     "description": "...",
     "rule_citation": "...",
     "severity": "...",
-    "suggestion": "..."
+    "suggestion": "...",
+    "replacement_text": "..."
   }}
 ]
 
@@ -279,10 +281,83 @@ If the content is compliant or no clear violations exist, return: []
                 "rule_citation": v.get("rule_citation", "Brand Guideline"),
                 "explanation": v.get("description", ""),
                 "suggested_fix": v.get("suggestion", "Review and align with brand guidelines"),
+                "replacement_text": v.get("replacement_text"),
                 "confidence": self._map_confidence(v.get("confidence_score", 0.7))
             })
 
         return flags
+
+    def generate_intent_preserving_rewrite(
+        self,
+        content: str,
+        flags: List[Dict[str, any]],
+        guideline_id: str = "default"
+    ) -> str:
+        """
+        Generate an intent-preserving, brand-compliant rewritten version of the content.
+        Fixes all detected violations while preserving the original persuasive voice and messaging.
+        """
+        if not flags:
+            return content
+
+        # Gather relevant guideline context
+        relevant_rules = self.retrieve_relevant_rules(guideline_id, content, top_k=5)
+        guideline_context = "\n".join([r['rule_text'] for r in relevant_rules]) if relevant_rules else "Follow professional, evidence-grounded brand communication standards."
+
+        issues_summary = "\n".join([
+            f"- Issue: {f.get('issue_type')} on '{f.get('flagged_text')}'. Fix: {f.get('suggested_fix')}"
+            for f in flags[:8]
+        ])
+
+        prompt = f"""You are an elite brand communications editor.
+Your job is to REWRITE the provided marketing content so it becomes 100% compliant with the brand guidelines, while strictly PRESERVING the original author's persuasive intent, tone, key selling points, and core message.
+
+BRAND GUIDELINES CONTEXT:
+{guideline_context}
+
+DETECTED COMPLIANCE VIOLATIONS:
+{issues_summary}
+
+ORIGINAL CONTENT:
+{content}
+
+RULES FOR THE REWRITE:
+1. Preserve the persuasive message, energetic tone, and core value proposition.
+2. Replace all prohibited terms, superlatives, and absolute guarantees with credible, high-impact alternatives.
+3. Seamlessly add required disclaimers (e.g., 'Results may vary based on your specific use case. Terms and conditions apply. No credit card required for trial.') where promotional or performance claims are made.
+4. Correct any excessive ALL CAPS formatting to professional casing.
+5. Return ONLY the rewritten content text directly. Do not include markdown quotes, introductory text, explanations, or code blocks.
+"""
+
+        try:
+            rewritten = self.generate_content(prompt).strip()
+            # Clean any markdown code blocks if the model wrapped it
+            if rewritten.startswith('```'):
+                lines = rewritten.splitlines()
+                if lines[0].startswith('```'):
+                    lines = lines[1:]
+                if lines and lines[-1].startswith('```'):
+                    lines = lines[:-1]
+                rewritten = "\n".join(lines).strip()
+            
+            if rewritten and len(rewritten) > 20:
+                return rewritten
+        except Exception as e:
+            print(f"Gemini rewrite generation failed, using fallback: {e}")
+
+        # Deterministic Fallback: Apply replacement_text from flags sequentially
+        fallback_text = content
+        for f in flags:
+            flagged = f.get('flagged_text')
+            rep = f.get('replacement_text')
+            if flagged and rep and flagged in fallback_text:
+                fallback_text = fallback_text.replace(flagged, rep)
+        
+        # Ensure standard disclaimer is appended if missing
+        if "Results may vary" not in fallback_text and any(f.get('issue_type') in ['Missing Disclaimer', 'Banned Word', 'Unsupported Superlative'] for f in flags):
+            fallback_text += "\n\nResults may vary based on your specific use case. Terms and conditions apply."
+            
+        return fallback_text
 
     def _map_severity(self, severity: str) -> str:
         """Map severity string to AuditFlag expected format"""

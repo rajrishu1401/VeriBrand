@@ -2,11 +2,48 @@
 Deterministic Rules Engine
 Regex-based pattern matching for instant, explainable violations
 Zero hallucination risk - every flag has exact source citation
+Includes intent-preserving smart replacements for 1-click fixes
 """
 
 import re
 from typing import List, Dict, Optional
 from datetime import datetime
+
+# Common replacement suggestions preserving user intent
+SMART_REPLACEMENTS = {
+    "guarantee": "help ensure",
+    "guarantees": "helps ensure",
+    "guaranteed": "demonstrated",
+    "always": "consistently",
+    "never": "rarely",
+    "free": "complimentary trial",
+    "totally free": "no-cost trial",
+    "100% free": "complimentary trial",
+    "100%": "high",
+    "best": "leading",
+    "greatest": "premier",
+    "most": "widely recognized",
+    "fastest": "high-performance",
+    "leading": "trusted",
+    "top": "premier",
+    "#1": "recognized",
+    "number one": "recognized",
+    "revolutionary": "innovative",
+    "game-changing": "impactful",
+    "game changing": "impactful",
+    "unprecedented": "significant",
+    "unmatched": "standout",
+}
+
+def match_case(original: str, replacement: str) -> str:
+    """Preserve casing (UPPERCASE, Title Case, lowercase) of original word"""
+    if original.isupper() and len(original) > 1:
+        return replacement.upper()
+    elif original.istitle():
+        return replacement.title()
+    elif original.islower():
+        return replacement.lower()
+    return replacement
 
 class DeterministicEngine:
     def __init__(self):
@@ -25,7 +62,7 @@ class DeterministicEngine:
         # Banned words that create legal/trust issues
         self.rules["banned_words"] = [
             {
-                "pattern": r"\b(guarantee|guaranteed)\b",
+                "pattern": r"\b(guarantee|guarantees|guaranteed)\b",
                 "severity": "high",
                 "reason": "Absolute claims create legal liability",
                 "citation": "Section 2.3: Avoid Absolute Claims"
@@ -37,10 +74,16 @@ class DeterministicEngine:
                 "citation": "Section 2.3: Avoid Absolute Claims"
             },
             {
-                "pattern": r"\b(free|totally free|100% free)\b",
+                "pattern": r"\b(100% free|totally free|free)\b",
                 "severity": "high",
                 "reason": "Free claims require explicit terms disclosure",
                 "citation": "Section 3.1: Pricing Language"
+            },
+            {
+                "pattern": r"\b(100%)\b",
+                "severity": "high",
+                "reason": "Absolute 100% claims are unverifiable and prohibited",
+                "citation": "Section 2.3: Avoid Absolute Claims"
             }
         ]
         
@@ -64,7 +107,7 @@ class DeterministicEngine:
         self.rules["required_disclaimers"] = [
             {
                 "pattern": r"\b(results|outcome|performance)\b",
-                "requires": "results may vary",
+                "requires": "Results may vary based on your specific use case.",
                 "severity": "medium",
                 "reason": "Performance claims require disclaimer",
                 "citation": "Section 3.2: Disclaimers"
@@ -74,7 +117,7 @@ class DeterministicEngine:
         # Formatting rules
         self.rules["formatting"] = [
             {
-                "pattern": r"[A-Z]{4,}",  # All caps > 3 chars
+                "pattern": r"\b[A-Z]{4,}\b",  # All caps words > 3 chars
                 "severity": "low",
                 "reason": "Excessive capitalization appears unprofessional",
                 "citation": "Section 4.1: Typography"
@@ -195,7 +238,7 @@ class DeterministicEngine:
     def check(self, content: str) -> List[Dict[str, any]]:
         """
         Run deterministic audit on content
-        Returns list of violations with exact pattern matches
+        Returns list of violations with exact pattern matches and smart 1-click replacement text
         """
         violations = []
         
@@ -204,15 +247,20 @@ class DeterministicEngine:
             matches = list(re.finditer(rule["pattern"], content, re.IGNORECASE))
             if matches:
                 for match in matches:
+                    matched_word = match.group()
+                    clean_lower = matched_word.lower()
+                    base_rep = SMART_REPLACEMENTS.get(clean_lower, "approved alternative")
+                    rep = match_case(matched_word, base_rep)
                     violations.append({
                         "violation_type": "Banned Word",
-                        "description": f"Found prohibited term: '{match.group()}'",
-                        "matched_text": match.group(),
+                        "description": f"Found prohibited term: '{matched_word}'",
+                        "matched_text": matched_word,
                         "position": match.span(),
                         "severity": rule["severity"],
                         "reason": rule["reason"],
                         "citation": rule["citation"],
-                        "suggestion": f"Remove or replace '{match.group()}' with evidence-based language"
+                        "suggestion": f"Replace '{matched_word}' with '{rep}' to align with brand guidelines",
+                        "replacement_text": rep
                     })
         
         # Check superlatives
@@ -220,30 +268,37 @@ class DeterministicEngine:
             matches = list(re.finditer(rule["pattern"], content, re.IGNORECASE))
             if matches:
                 for match in matches:
+                    matched_word = match.group()
+                    clean_lower = matched_word.lower()
+                    base_rep = SMART_REPLACEMENTS.get(clean_lower, "premier")
+                    rep = match_case(matched_word, base_rep)
                     violations.append({
                         "violation_type": "Unsupported Superlative",
-                        "description": f"Superlative claim requires evidence: '{match.group()}'",
-                        "matched_text": match.group(),
+                        "description": f"Superlative claim requires evidence: '{matched_word}'",
+                        "matched_text": matched_word,
                         "position": match.span(),
                         "severity": rule["severity"],
                         "reason": rule["reason"],
                         "citation": rule["citation"],
-                        "suggestion": f"Add citation or replace '{match.group()}' with specific, measurable claim"
+                        "suggestion": f"Replace with specific claim like '{rep}' or add data citation",
+                        "replacement_text": rep
                     })
         
         # Check required disclaimers
         for rule in self.rules["required_disclaimers"]:
             if re.search(rule["pattern"], content, re.IGNORECASE):
-                if not re.search(rule["requires"], content, re.IGNORECASE):
+                req_text = rule.get("requires", "Results may vary based on your specific use case.")
+                if not re.search(re.escape(req_text.rstrip('.')), content, re.IGNORECASE):
                     violations.append({
                         "violation_type": "Missing Disclaimer",
-                        "description": f"Content mentions {rule['pattern']} but lacks required disclaimer",
+                        "description": f"Content mentions performance claims but lacks required disclaimer",
                         "matched_text": None,
                         "position": None,
                         "severity": rule["severity"],
                         "reason": rule["reason"],
                         "citation": rule["citation"],
-                        "suggestion": f"Add disclaimer: '{rule['requires']}'"
+                        "suggestion": f"Add disclaimer: '{req_text}'",
+                        "replacement_text": req_text
                     })
         
         # Check formatting
@@ -251,15 +306,21 @@ class DeterministicEngine:
             matches = list(re.finditer(rule["pattern"], content))
             if matches:
                 for match in matches:
+                    matched_word = match.group()
+                    if "!" in matched_word:
+                        rep = "."
+                    else:
+                        rep = matched_word.capitalize()
                     violations.append({
                         "violation_type": "Formatting Issue",
-                        "description": f"Formatting violation: '{match.group()}'",
-                        "matched_text": match.group(),
+                        "description": f"Formatting violation: '{matched_word}'",
+                        "matched_text": matched_word,
                         "position": match.span(),
                         "severity": rule["severity"],
                         "reason": rule["reason"],
                         "citation": rule["citation"],
-                        "suggestion": f"Fix formatting for '{match.group()}'"
+                        "suggestion": f"Use standard capitalization: '{rep}'",
+                        "replacement_text": rep
                     })
         
         # Format violations to match AuditFlag model
@@ -273,6 +334,7 @@ class DeterministicEngine:
                 "rule_citation": v["citation"],
                 "explanation": v["reason"],
                 "suggested_fix": v["suggestion"],
+                "replacement_text": v.get("replacement_text"),
                 "confidence": "high"  # Deterministic rules always have high confidence
             })
         

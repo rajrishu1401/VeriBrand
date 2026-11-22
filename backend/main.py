@@ -68,6 +68,7 @@ class AuditFlag(BaseModel):
     rule_citation: str
     explanation: str
     suggested_fix: str
+    replacement_text: Optional[str] = None
     confidence: str  # high, medium, low
 
 
@@ -76,6 +77,18 @@ class AuditResponse(BaseModel):
     brand_trust_score: int
     flags: List[AuditFlag]
     total_issues: int
+    rewritten_content: Optional[str] = None
+
+
+class RewriteRequest(BaseModel):
+    content: str
+    guideline_id: Optional[str] = None
+
+
+class RewriteResponse(BaseModel):
+    original_content: str
+    rewritten_content: str
+    total_issues_fixed: int
 
 
 class ApprovalRequest(BaseModel):
@@ -191,19 +204,72 @@ async def submit_content(submission: ContentSubmission):
         # Score formula: 100 - (critical * 20) - (warning * 7) - (suggestion * 2)
         trust_score = max(0, 100 - (critical_count * 20) - (warning_count * 7) - (suggestion_count * 2))
         
-        # Store audit results
-        db.store_audit_results(submission_id, all_flags, trust_score)
+        # Round 3 Feature: Generate Intent-Preserving Compliant Rewrite if any issues exist
+        rewritten_content = None
+        if len(all_flags) > 0:
+            try:
+                rewritten_content = rag_engine.generate_intent_preserving_rewrite(
+                    submission.content,
+                    all_flags,
+                    guideline_id=latest_id or "default"
+                )
+            except Exception as rw_err:
+                print(f"Rewrite generation error: {rw_err}")
+                rewritten_content = None
+
+        # Store audit results with rewritten content
+        db.store_audit_results(submission_id, all_flags, trust_score, rewritten_content=rewritten_content)
         
         return AuditResponse(
             submission_id=submission_id,
             brand_trust_score=trust_score,
             flags=[AuditFlag(**flag) for flag in all_flags],
-            total_issues=len(all_flags)
+            total_issues=len(all_flags),
+            rewritten_content=rewritten_content
         )
         
     except Exception as e:
         import traceback
         print(f"ERROR in submit_content: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/rewrite", response_model=RewriteResponse)
+async def rewrite_content(request: RewriteRequest):
+    """
+    Round 3 Feature: Intent-Preserving Brand Compliant Rewrite
+    Takes draft marketing content and returns a 100% compliant version
+    preserving the author's persuasive intent and core message.
+    """
+    try:
+        content = request.content
+        if not content.strip():
+            raise HTTPException(status_code=400, detail="Content cannot be empty")
+
+        # Run checks to identify flags
+        det_flags = deterministic_engine.check(content)
+        sem_flags = []
+        guideline_id = request.guideline_id or db.get_latest_guideline_id() or "default"
+        try:
+            sem_flags = rag_engine.check_content(content, guideline_id=guideline_id)
+        except Exception as e:
+            print(f"Semantic audit error in rewrite: {e}")
+
+        all_flags = det_flags + sem_flags
+        
+        rewritten = rag_engine.generate_intent_preserving_rewrite(content, all_flags, guideline_id=guideline_id)
+        
+        return RewriteResponse(
+            original_content=content,
+            rewritten_content=rewritten,
+            total_issues_fixed=len(all_flags)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"ERROR in rewrite_content: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -237,6 +303,45 @@ async def approve_content(request: ApprovalRequest):
         }
         
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/rewrite", response_model=RewriteResponse)
+async def rewrite_content(request: RewriteRequest):
+    """
+    Round 3 Feature: Intent-Preserving Brand Compliant Rewrite
+    Takes draft marketing content and returns a 100% compliant version
+    preserving the author's persuasive intent and core message.
+    """
+    try:
+        content = request.content
+        if not content.strip():
+            raise HTTPException(status_code=400, detail="Content cannot be empty")
+
+        # Run checks to identify flags
+        det_flags = deterministic_engine.check(content)
+        sem_flags = []
+        guideline_id = request.guideline_id or db.get_latest_guideline_id() or "default"
+        try:
+            sem_flags = rag_engine.check_content(content, guideline_id=guideline_id)
+        except Exception as e:
+            print(f"Semantic audit error in rewrite: {e}")
+
+        all_flags = det_flags + sem_flags
+        
+        rewritten = rag_engine.generate_intent_preserving_rewrite(content, all_flags, guideline_id=guideline_id)
+        
+        return RewriteResponse(
+            original_content=content,
+            rewritten_content=rewritten,
+            total_issues_fixed=len(all_flags)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"ERROR in rewrite_content: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 

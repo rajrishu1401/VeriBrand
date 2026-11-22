@@ -46,6 +46,7 @@ interface ReviewData {
   submitted_at?: string;
   status?: string;
   reviewer_comment?: string;
+  rewritten_content?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -374,6 +375,26 @@ function IndividualReview({ submissionId }: { submissionId: string }) {
             </p>
           )}
         </div>
+
+        {/* Round 3: Intent-Preserving Compliant Rewrite Preview */}
+        {reviewData.rewritten_content && (
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl shadow-lg p-6 border border-emerald-200">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                  Round 3 Delivery
+                </span>
+                <h3 className="text-lg font-bold text-gray-900">✨ Intent-Preserving Compliant Rewrite</h3>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mb-3">
+              AI-generated brand-compliant revision preserving creator voice and persuasive intent.
+            </p>
+            <div className="bg-white rounded-lg p-4 border border-emerald-200 text-sm text-gray-800 font-mono whitespace-pre-wrap">
+              {reviewData.rewritten_content}
+            </div>
+          </div>
+        )}
 
         {/* Flags */}
         <div className="bg-white rounded-xl shadow-lg p-6">
