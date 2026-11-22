@@ -590,20 +590,22 @@ export default function SubmitPage() {
             {/* Input Column */}
             <div>
               <div className="bg-white rounded-xl shadow-lg p-6 mb-6 space-y-4">
-                {guidelines.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Audit Against Guideline</label>
-                    <select
-                      value={selectedGuideline}
-                      onChange={e => setSelectedGuideline(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
-                    >
-                      {guidelines.map(g => (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Audit Against Guideline</label>
+                  <select
+                    value={selectedGuideline}
+                    onChange={e => setSelectedGuideline(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
+                  >
+                    {guidelines.length > 0 ? (
+                      guidelines.map(g => (
                         <option key={g.id} value={g.id}>{g.filename}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      ))
+                    ) : (
+                      <option value="default">sample_brand_guideline.txt (Section 1–12)</option>
+                    )}
+                  </select>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Creator Name</label>
@@ -842,22 +844,24 @@ export default function SubmitPage() {
                   </span>
                 </div>
 
-                {guidelines.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                      Audit Against Guideline
-                    </label>
-                    <select
-                      value={selectedGuideline}
-                      onChange={e => setSelectedGuideline(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
-                    >
-                      {guidelines.map(g => (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                    Audit Against Guideline
+                  </label>
+                  <select
+                    value={selectedGuideline}
+                    onChange={e => setSelectedGuideline(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
+                  >
+                    {guidelines.length > 0 ? (
+                      guidelines.map(g => (
                         <option key={g.id} value={g.id}>{g.filename}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      ))
+                    ) : (
+                      <option value="default">sample_brand_guideline.txt (Section 1–12)</option>
+                    )}
+                  </select>
+                </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
