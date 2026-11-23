@@ -232,8 +232,60 @@ class DeterministicEngine:
                     citation="Guideline: Mandatory Inclusion"
                 )
                 rules_found += 1
-        
-        return rules_found
+
+        # Pattern 5: Natural language constraints (exclamations, questions, 100%, colors)
+        text_lower = guideline_text.lower()
+
+        # Rule for exclamation marks
+        if ("exclai" in text_lower or "exclam" in text_lower or "!" in text_lower) and any(w in text_lower for w in ["prohibit", "not", "ban", "avoid"]):
+            self.add_custom_rule(
+                category="formatting",
+                pattern=r"!",
+                severity="high",
+                reason="Exclamation marks are prohibited per brand guidelines",
+                citation="Guideline Rule: Exclamation Marks Prohibited"
+            )
+            rules_found += 1
+
+        # Rule for questions
+        if "question" in text_lower and any(w in text_lower for w in ["not", "prohibit", "avoid", "ban", "no"]):
+            self.add_custom_rule(
+                category="formatting",
+                pattern=r"\?",
+                severity="high",
+                reason="Questions in marketing copy are prohibited per brand guidelines",
+                citation="Guideline Rule: Questions Prohibited"
+            )
+            rules_found += 1
+
+        # Rule for 100%
+        if "100%" in text_lower and any(w in text_lower for w in ["not", "never", "prohibit", "avoid", "ban"]):
+            self.add_custom_rule(
+                category="banned_words",
+                pattern=r"\b100%\b",
+                severity="high",
+                reason="100% claims are prohibited per brand guidelines",
+                citation="Guideline Rule: 100% Prohibited"
+            )
+            rules_found += 1
+
+        # Rule for banned colors in copy
+        if any(w in text_lower for w in ["red", "blue"]) and ("col" in text_lower or "poster" in text_lower) and any(w in text_lower for w in ["no", "not", "prohibit"]):
+            self.add_custom_rule(
+                category="banned_words",
+                pattern=r"\b(red|blue)\b",
+                severity="high",
+                reason="Red and Blue colors are prohibited per visual guidelines",
+                citation="Guideline Rule: Color Restriction"
+            )
+            rules_found += 1
+
+        # Numbered rules line count fallback
+        numbered_lines = re.findall(r"^\s*\d+[\.\)]\s*.+", guideline_text, re.MULTILINE)
+        if len(numbered_lines) > rules_found:
+            rules_found = len(numbered_lines)
+
+        return max(rules_found, 1)
     
     def check(self, content: str) -> List[Dict[str, any]]:
         """

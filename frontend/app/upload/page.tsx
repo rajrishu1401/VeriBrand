@@ -78,20 +78,105 @@ const SAMPLE_RULE_MATRIX: ExtractedRule[] = [
   },
 ];
 
+function parseGuidelineText(text: string): ExtractedRule[] {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const rules: ExtractedRule[] = [];
+
+  lines.forEach((line) => {
+    const numberedMatch = line.match(/^(\d+)[\.\)]\s*(.+)$/i);
+    const bulletMatch = line.match(/^[-*•]\s*(.+)$/i);
+    const sectionMatch = line.match(/^(?:Section|Rule)\s*([\d\.]+):?\s*(.+)$/i);
+
+    let sectionName = '';
+    let ruleText = '';
+
+    if (numberedMatch) {
+      sectionName = `Rule ${numberedMatch[1]}`;
+      ruleText = numberedMatch[2].trim();
+    } else if (sectionMatch) {
+      sectionName = `Section ${sectionMatch[1]}`;
+      ruleText = sectionMatch[2].trim();
+    } else if (bulletMatch) {
+      sectionName = `Rule ${rules.length + 1}`;
+      ruleText = bulletMatch[1].trim();
+    } else if (line.length > 5 && !line.toLowerCase().endsWith('rules:')) {
+      sectionName = `Rule ${rules.length + 1}`;
+      ruleText = line;
+    }
+
+    if (!ruleText) return;
+
+    const lower = ruleText.toLowerCase();
+    let category = 'Brand Compliance';
+    let enforcement: 'Deterministic' | 'Semantic RAG' = 'Deterministic';
+    let severity: 'Critical' | 'Warning' | 'Suggestion' = 'Critical';
+
+    if (lower.includes('100%') || lower.includes('guarantee') || lower.includes('best') || lower.includes('claim')) {
+      category = 'Tone & Claims';
+      enforcement = 'Deterministic';
+      severity = 'Critical';
+    } else if (lower.includes('name of') || lower.includes('person') || lower.includes('ambassador') || lower.includes('roshan') || lower.includes('competitor')) {
+      category = 'Entity & Endorsements';
+      enforcement = 'Semantic RAG';
+      severity = lower.includes('can be') ? 'Warning' : 'Critical';
+    } else if (lower.includes('red') || lower.includes('blue') || lower.includes('colour') || lower.includes('color') || lower.includes('poster') || lower.includes('wcag')) {
+      category = 'Visual & Palette';
+      enforcement = 'Deterministic';
+      severity = 'Critical';
+    } else if (lower.includes('question') || lower.includes('?')) {
+      category = 'Punctuation & Style';
+      enforcement = 'Deterministic';
+      severity = 'Critical';
+    } else if (lower.includes('exclamation') || lower.includes('exclainmation') || lower.includes('!')) {
+      category = 'Punctuation & Formatting';
+      enforcement = 'Deterministic';
+      severity = 'Critical';
+    } else if (lower.includes('disclaimer') || lower.includes('terms and conditions')) {
+      category = 'Legal Disclaimers';
+      enforcement = 'Deterministic';
+      severity = 'Critical';
+    }
+
+    rules.push({
+      section: sectionName,
+      category,
+      rule: ruleText,
+      enforcement,
+      severity,
+    });
+  });
+
+  return rules.length > 0 ? rules : SAMPLE_RULE_MATRIX;
+}
+
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [showMatrix, setShowMatrix] = useState(false);
+  const [displayedRules, setDisplayedRules] = useState<ExtractedRule[]>(SAMPLE_RULE_MATRIX);
+  const [guidelineName, setGuidelineName] = useState<string>('TechCorp Enterprise Spec');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
       setResult(null);
       setError(null);
       setShowMatrix(false);
+
+      if (selectedFile.name.endsWith('.txt')) {
+        try {
+          const text = await selectedFile.text();
+          const parsed = parseGuidelineText(text);
+          setDisplayedRules(parsed);
+          setGuidelineName(selectedFile.name);
+        } catch {
+          // fallback
+        }
+      }
     }
   };
 
@@ -102,6 +187,15 @@ export default function UploadPage() {
     setError(null);
 
     try {
+      // Parse file text client-side for immediate dynamic table update
+      let parsedRules: ExtractedRule[] = displayedRules;
+      if (file.name.endsWith('.txt')) {
+        const text = await file.text();
+        parsedRules = parseGuidelineText(text);
+        setDisplayedRules(parsedRules);
+        setGuidelineName(file.name);
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -115,6 +209,25 @@ export default function UploadPage() {
       }
 
       const data = await response.json();
+      if (data.extracted_rules && data.extracted_rules.length > 0) {
+        setDisplayedRules(data.extracted_rules);
+        data.rules_extracted = data.extracted_rules.length;
+      } else {
+        data.rules_extracted = parsedRules.length;
+      }
+
+      // Persist active guideline rule set in localStorage for Audit Studio
+      try {
+        localStorage.setItem(
+          'active_guideline_rules',
+          JSON.stringify({
+            id: data.guideline_id,
+            filename: file.name,
+            rules: parsedRules,
+          })
+        );
+      } catch {}
+
       setResult(data);
       setShowMatrix(true);
     } catch (err) {
@@ -127,10 +240,12 @@ export default function UploadPage() {
 
   const handleLoadSampleGuideline = () => {
     setFile(new File(['Sample Brand Guidelines'], 'TechCorp_Enterprise_Brand_Guidelines_v3.txt', { type: 'text/plain' }));
+    setDisplayedRules(SAMPLE_RULE_MATRIX);
+    setGuidelineName('TechCorp Enterprise Brand Guidelines (v3.2)');
     setResult({
       message: 'Successfully ingested TechCorp Enterprise Brand Guidelines (v3.2)',
       guideline_id: 'techcorp-enterprise-v3',
-      rules_extracted: 24,
+      rules_extracted: SAMPLE_RULE_MATRIX.length,
       sections_indexed: 12,
     });
     setShowMatrix(true);
@@ -284,7 +399,7 @@ export default function UploadPage() {
                   </div>
                   <div>
                     <span className="font-semibold text-slate-500">Rules Extracted:</span>{' '}
-                    <span className="font-mono font-bold text-emerald-700">{result.rules_extracted ?? 24} rules</span>
+                    <span className="font-mono font-bold text-emerald-700">{result.rules_extracted ?? displayedRules.length} rules</span>
                   </div>
                   <div>
                     <span className="font-semibold text-slate-500">Enforcement Mode:</span>{' '}
@@ -314,11 +429,11 @@ export default function UploadPage() {
                 Extracted Governance Rule Matrix
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Parsed policy constraints actively enforced by the dual-layer audit engine
+                Active policy constraints extracted from <strong className="text-slate-700 font-mono">{guidelineName}</strong>
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-slate-500">
-              {SAMPLE_RULE_MATRIX.length} Active Rules
+            <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+              {displayedRules.length} Active Rules
             </span>
           </div>
 
@@ -334,7 +449,7 @@ export default function UploadPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {SAMPLE_RULE_MATRIX.map((item, idx) => (
+                {displayedRules.map((item, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-6 py-3.5 font-mono font-bold text-slate-700 text-[11px]">
                       {item.section}

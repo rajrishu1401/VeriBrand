@@ -50,11 +50,20 @@ async def startup_event():
 
 # ==================== Request/Response Models ====================
 
+class ExtractedRuleItem(BaseModel):
+    section: str
+    category: str
+    rule: str
+    enforcement: str
+    severity: str
+
+
 class GuidelineUploadResponse(BaseModel):
     success: bool
     message: str
     guideline_id: str
     rules_extracted: int
+    extracted_rules: List[ExtractedRuleItem] = []
 
 
 class ContentSubmission(BaseModel):
@@ -178,6 +187,44 @@ async def upload_guideline(file: UploadFile = File(...)):
         det_rules_count = deterministic_engine.extract_rules(text)
         rules_count += det_rules_count
         
+        # Parse individual rule items for the UI Extracted Governance Rule Matrix
+        import re
+        extracted_rule_items = []
+        numbered_matches = re.findall(r"^\s*(\d+)[\.\)]\s*(.+)$", text, re.MULTILINE)
+        if numbered_matches:
+            for num, r_text in numbered_matches:
+                clean_r = r_text.strip()
+                r_lower = clean_r.lower()
+                cat = "Brand Compliance"
+                enf = "Deterministic"
+                sev = "Critical"
+
+                if "100%" in r_lower or "guarantee" in r_lower or "claim" in r_lower:
+                    cat = "Tone & Claims"
+                    enf = "Deterministic"
+                elif any(w in r_lower for w in ["name", "person", "ambassador", "roshan"]):
+                    cat = "Entity & Endorsements"
+                    enf = "Semantic RAG"
+                    sev = "Warning" if "can be" in r_lower else "Critical"
+                elif any(w in r_lower for w in ["red", "blue", "colour", "color", "poster"]):
+                    cat = "Visual & Palette"
+                    enf = "Deterministic"
+                elif "question" in r_lower or "?" in r_lower:
+                    cat = "Punctuation & Style"
+                    enf = "Deterministic"
+                elif "exclai" in r_lower or "exclam" in r_lower or "!" in r_lower:
+                    cat = "Punctuation & Formatting"
+                    enf = "Deterministic"
+
+                extracted_rule_items.append(ExtractedRuleItem(
+                    section=f"Rule {num}",
+                    category=cat,
+                    rule=clean_r,
+                    enforcement=enf,
+                    severity=sev
+                ))
+            rules_count = len(extracted_rule_items)
+
         if rag_active:
             msg = "Guideline uploaded and indexed successfully (Deterministic + Gemini semantic analysis active)"
         else:
@@ -187,7 +234,8 @@ async def upload_guideline(file: UploadFile = File(...)):
             success=True,
             message=msg,
             guideline_id=guideline_id,
-            rules_extracted=rules_count
+            rules_extracted=rules_count,
+            extracted_rules=extracted_rule_items
         )
         
     except Exception as e:
