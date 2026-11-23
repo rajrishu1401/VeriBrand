@@ -266,8 +266,8 @@ export default function GuidelinesDirectoryPage() {
         if (combined.length === 0) {
           combined = [
             {
-              id: 'techcorp-default',
-              filename: 'TechCorp_Enterprise_Brand_Guidelines_v3.2.txt',
+              id: 'demo-sample-default',
+              filename: 'Demo Brand Guideline (Sample).txt',
               uploaded_at: '2026-11-23 10:00:00',
             },
           ];
@@ -282,8 +282,8 @@ export default function GuidelinesDirectoryPage() {
       .catch(() => {
         const fallback = [
           {
-            id: 'techcorp-default',
-            filename: 'TechCorp_Enterprise_Brand_Guidelines_v3.2.txt',
+            id: 'demo-sample-default',
+            filename: 'Demo Brand Guideline (Sample).txt',
             uploaded_at: '2026-11-23 10:00:00',
           },
         ];

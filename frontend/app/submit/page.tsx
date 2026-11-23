@@ -654,7 +654,7 @@ export default function SubmitPage() {
                         <option key={g.id} value={g.id}>{g.filename}</option>
                       ))
                     ) : (
-                      <option value="default">sample_brand_guideline.txt (Section 1–12 Ingested)</option>
+                      <option value="default">Demo Brand Guideline (Sample) — Section 1–12</option>
                     )}
                   </select>
                 </div>
@@ -1027,7 +1027,7 @@ export default function SubmitPage() {
                         <option key={g.id} value={g.id}>{g.filename}</option>
                       ))
                     ) : (
-                      <option value="default">sample_brand_guideline.txt (Section 12 Color Spec)</option>
+                      <option value="default">Demo Brand Guideline (Sample) — Visual Color Spec</option>
                     )}
                   </select>
                 </div>
