@@ -307,7 +307,7 @@ export default function GuidelinesDirectoryPage() {
   const criticalCount = activeRules.filter(r => r.severity === 'Critical').length;
 
   return (
-    <div className="py-8 max-w-7xl mx-auto space-y-8">
+    <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200/80">
         <div>

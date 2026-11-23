@@ -253,7 +253,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="py-8 max-w-5xl mx-auto">
+    <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>

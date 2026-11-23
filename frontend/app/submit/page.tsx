@@ -544,7 +544,7 @@ export default function SubmitPage() {
   const suggestions = activeFlags.filter(f => f.severity === 'suggestion').length;
 
   return (
-    <div className="py-8">
+    <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
