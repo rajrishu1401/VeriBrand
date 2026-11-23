@@ -17,10 +17,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <html lang="en" className="h-full light" style={{ colorScheme: 'light' }}>
+      <body
+        className="min-h-full flex flex-col font-sans antialiased"
+        style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}
+      >
         <Navbar />
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">{children}</main>
+        <main className="flex-1 w-full bg-slate-50">{children}</main>
         <Footer />
       </body>
     </html>
