@@ -201,11 +201,11 @@ export default function Home() {
           ) : (
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold tracking-tight text-slate-900">
-                {avgTrustScore.toFixed(0)}
-                <span className="text-base font-normal text-slate-400">/100</span>
+                {totalSubmissions === 0 ? '--' : avgTrustScore.toFixed(0)}
+                {totalSubmissions > 0 && <span className="text-base font-normal text-slate-400">/100</span>}
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                Bench: 85+
+                {totalSubmissions === 0 ? 'Awaiting Audits' : 'Bench: 85+'}
               </span>
             </div>
           )}
@@ -225,7 +225,7 @@ export default function Home() {
           ) : (
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold tracking-tight text-slate-900">
-                {topIssues.reduce((sum, i) => sum + i.count, 0) || 6}
+                {totalSubmissions === 0 ? 0 : topIssues.reduce((sum, i) => sum + i.count, 0)}
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
                 0% Leakage
@@ -251,11 +251,11 @@ export default function Home() {
                 {feedbackLoop?.guideline_health_score ?? 88}%
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                Tier A+
+                {feedbackLoop?.ambiguous_rules_count ? 'Review Alert' : 'Tier A+'}
               </span>
             </div>
           )}
-          <p className="text-[11px] text-slate-400 mt-1.5 font-medium">Policy enforcement alignment</p>
+          <p className="text-[11px] text-slate-400 mt-1.5 font-medium">Policy override alignment</p>
         </div>
       </div>
 
