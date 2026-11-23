@@ -21,3 +21,12 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.bak
+chroma_db/
+
