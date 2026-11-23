@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
 import os
+import re
+import json
+import traceback
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -88,6 +91,7 @@ class GuidelineCreateRequest(BaseModel):
     prohibit_questions: bool = False
     prohibit_100_percent: bool = False
     custom_rules_text: Optional[str] = None
+    raw_content: Optional[str] = None
 
 
 class AuditFlag(BaseModel):
@@ -628,84 +632,86 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
     Stores policy in DB, indexes vector embeddings, and extracts rule matrix.
     """
     try:
-        sections = []
-        sections.append(f"{req.title.upper()} — BRAND GOVERNANCE POLICY")
-        sections.append(f"Specification Version: {req.version}")
-        sections.append(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
-        sections.append("-" * 60)
+        if req.raw_content and req.raw_content.strip():
+            full_guideline_content = req.raw_content.strip()
+        else:
+            sections = []
+            sections.append(f"{req.title.upper()} — BRAND GOVERNANCE POLICY")
+            sections.append(f"Specification Version: {req.version}")
+            sections.append(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+            sections.append("-" * 60)
 
-        if req.description:
-            sections.append(f"\n1. POLICY OVERVIEW\n{req.description.strip()}")
+            if req.description:
+                sections.append(f"\n1. POLICY OVERVIEW\n{req.description.strip()}")
 
-        rule_num = 1
-        rules_text_list = []
+            rule_num = 1
+            rules_text_list = []
 
-        # Standard Baseline
-        if req.include_standard_rules:
-            rules_text_list.append(f"{rule_num}. Maintain minimum ISO/IEC 40500 WCAG 2.1 AA text contrast (4.5:1 ratio).")
-            rule_num += 1
-            rules_text_list.append(f"{rule_num}. Avoid absolute guarantees ('guarantee', 'guaranteed') and unverifiable claims.")
-            rule_num += 1
-            rules_text_list.append(f"{rule_num}. Never mention competitors directly without documented benchmark citations.")
-            rule_num += 1
-            rules_text_list.append(f"{rule_num}. Promotional offers regarding trials or pricing must carry 'Terms and conditions apply'.")
-            rule_num += 1
-
-        # Content & Tone Rules
-        if req.prohibit_100_percent:
-            rules_text_list.append(f"{rule_num}. 100% should not be written.")
-            rule_num += 1
-
-        if req.prohibit_person_names:
-            rules_text_list.append(f"{rule_num}. Name of any person should not be mentioned.")
-            rule_num += 1
-
-        if req.allowed_ambassadors:
-            ambassador_str = ", ".join(req.allowed_ambassadors)
-            rules_text_list.append(f"{rule_num}. Name of Our brand ambassador can be mentioned, which is {ambassador_str}.")
-            rule_num += 1
-
-        if req.prohibit_questions:
-            rules_text_list.append(f"{rule_num}. Question should not be added in marketing copy.")
-            rule_num += 1
-
-        if req.prohibit_exclamations:
-            rules_text_list.append(f"{rule_num}. Use of exclamation is prohibited.")
-            rule_num += 1
-
-        for w in req.prohibited_words:
-            if w.strip():
-                rules_text_list.append(f"{rule_num}. Prohibited term: '{w.strip()}' must not appear in marketing claims.")
+            # Standard Baseline
+            if req.include_standard_rules:
+                rules_text_list.append(f"{rule_num}. Maintain minimum ISO/IEC 40500 WCAG 2.1 AA text contrast (4.5:1 ratio).")
+                rule_num += 1
+                rules_text_list.append(f"{rule_num}. Avoid absolute guarantees ('guarantee', 'guaranteed') and unverifiable claims.")
+                rule_num += 1
+                rules_text_list.append(f"{rule_num}. Never mention competitors directly without documented benchmark citations.")
+                rule_num += 1
+                rules_text_list.append(f"{rule_num}. Promotional offers regarding trials or pricing must carry 'Terms and conditions apply'.")
                 rule_num += 1
 
-        # Visual & Color Rules
-        if req.prohibited_colors:
-            colors_str = " and ".join(req.prohibited_colors)
-            rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
-            rule_num += 1
+            # Content & Tone Rules
+            if req.prohibit_100_percent:
+                rules_text_list.append(f"{rule_num}. 100% should not be written.")
+                rule_num += 1
 
-        if req.approved_palette:
-            palette_str = ", ".join(req.approved_palette)
-            rules_text_list.append(f"{rule_num}. Approved Brand Color Palette: {palette_str}.")
-            rule_num += 1
+            if req.prohibit_person_names:
+                rules_text_list.append(f"{rule_num}. Name of any person should not be mentioned.")
+                rule_num += 1
 
-        # Additional Custom Rules
-        if req.custom_rules_text and req.custom_rules_text.strip():
-            for line in req.custom_rules_text.strip().split("\n"):
-                line_clean = line.strip()
-                if line_clean:
-                    line_clean = re.sub(r"^\d+[\.\)]\s*", "", line_clean)
-                    rules_text_list.append(f"{rule_num}. {line_clean}")
+            if req.allowed_ambassadors:
+                ambassador_str = ", ".join(req.allowed_ambassadors)
+                rules_text_list.append(f"{rule_num}. Name of Our brand ambassador can be mentioned, which is {ambassador_str}.")
+                rule_num += 1
+
+            if req.prohibit_questions:
+                rules_text_list.append(f"{rule_num}. Question should not be added in marketing copy.")
+                rule_num += 1
+
+            if req.prohibit_exclamations:
+                rules_text_list.append(f"{rule_num}. Use of exclamation is prohibited.")
+                rule_num += 1
+
+            for w in req.prohibited_words:
+                if w.strip():
+                    rules_text_list.append(f"{rule_num}. Prohibited term: '{w.strip()}' must not appear in marketing claims.")
                     rule_num += 1
 
-        sections.append("\n2. ENFORCEABLE GOVERNANCE RULES")
-        sections.extend(rules_text_list)
+            # Visual & Color Rules
+            if req.prohibited_colors:
+                colors_str = " and ".join(req.prohibited_colors)
+                rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
+                rule_num += 1
 
-        full_guideline_content = "\n".join(sections)
+            if req.approved_palette:
+                palette_str = ", ".join(req.approved_palette)
+                rules_text_list.append(f"{rule_num}. Approved Brand Color Palette: {palette_str}.")
+                rule_num += 1
+
+            # Additional Custom Rules
+            if req.custom_rules_text and req.custom_rules_text.strip():
+                for line in req.custom_rules_text.strip().split("\n"):
+                    line_clean = line.strip()
+                    if line_clean:
+                        line_clean = re.sub(r"^\d+[\.\)]\s*", "", line_clean)
+                        rules_text_list.append(f"{rule_num}. {line_clean}")
+                        rule_num += 1
+
+            sections.append("\n2. ENFORCEABLE GOVERNANCE RULES")
+            sections.extend(rules_text_list)
+            full_guideline_content = "\n".join(sections)
 
         # Generate clean filename with version
-        clean_title = re.sub(r"[^\w\-]", "_", req.title).lower()
-        clean_version = re.sub(r"[^\w\.]", "", req.version)
+        clean_title = re.sub(r"[^\w\-]", "_", req.title).lower() if req.title else "custom_brand_policy"
+        clean_version = re.sub(r"[^\w\.]", "", req.version) if req.version else "1.0"
         filename = f"{clean_title}_v{clean_version}.txt"
 
         guideline_id = db.store_guideline(filename, full_guideline_content.encode("utf-8"))
