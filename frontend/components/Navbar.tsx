@@ -17,7 +17,7 @@ export default function Navbar() {
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/submit', label: 'Audit Studio', icon: Sparkles },
     { href: '/review', label: 'Review Queue', icon: CheckSquare },
-    { href: '/upload', label: 'Guidelines', icon: FileUp },
+    { href: '/guidelines', label: 'Guidelines', icon: FileUp },
   ];
 
   return (

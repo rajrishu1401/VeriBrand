@@ -29,7 +29,7 @@ export default function Footer() {
             <Link href="/" className="hover:text-slate-900 transition-colors">Dashboard</Link>
             <Link href="/submit" className="hover:text-slate-900 transition-colors">Audit Studio</Link>
             <Link href="/review" className="hover:text-slate-900 transition-colors">Review Queue</Link>
-            <Link href="/upload" className="hover:text-slate-900 transition-colors">Guidelines</Link>
+            <Link href="/guidelines" className="hover:text-slate-900 transition-colors">Guidelines</Link>
             <a
               href="https://veribrand-backend.onrender.com/docs"
               target="_blank"

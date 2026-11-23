@@ -255,18 +255,28 @@ export default function UploadPage() {
   return (
     <div className="py-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold uppercase tracking-wider mb-2.5">
-          <span>Knowledge Base</span>
-          <span className="text-slate-300">/</span>
-          <span>Guideline Ingestion Engine</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold uppercase tracking-wider mb-2.5">
+            <span>Knowledge Base</span>
+            <span className="text-slate-300">/</span>
+            <span>Guideline Ingestion Engine</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Brand Guideline Ingestion
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            Ingest brand books, style manuals, and legal compliance documentation (PDF, TXT, DOCX) to automatically build deterministic rule indexes and Gemini 2.5 Flash vector embeddings.
+          </p>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          Brand Guideline Ingestion
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-          Ingest brand books, style manuals, and legal compliance documentation (PDF, TXT, DOCX) to automatically build deterministic rule indexes and Gemini 2.5 Flash vector embeddings.
-        </p>
+
+        <Link
+          href="/guidelines"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs shrink-0 self-start sm:self-auto"
+        >
+          <span>View Guidelines Library</span>
+          <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+        </Link>
       </div>
 
       {/* Main Upload Box */}
