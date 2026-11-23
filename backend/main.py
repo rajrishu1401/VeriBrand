@@ -50,6 +50,22 @@ async def startup_event():
     except Exception as e:
         print(f"⚠️ Startup check failed: {e}")
 
+    # Rename legacy demo guideline filename in DB (one-time migration)
+    try:
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE guidelines SET filename = ? WHERE filename = ?",
+            ("Demo Brand Guideline (Sample).txt", "sample_brand_guideline.txt")
+        )
+        rows_updated = cursor.rowcount
+        conn.commit()
+        conn.close()
+        if rows_updated > 0:
+            print(f"✅ Renamed {rows_updated} legacy demo guideline(s) to 'Demo Brand Guideline (Sample).txt'")
+    except Exception as e:
+        print(f"⚠️ Demo guideline rename migration failed: {e}")
+
 
 # ==================== Request/Response Models ====================
 
