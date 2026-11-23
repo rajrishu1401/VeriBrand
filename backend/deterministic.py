@@ -80,7 +80,7 @@ class DeterministicEngine:
                 "citation": "Section 3.1: Pricing Language"
             },
             {
-                "pattern": r"\b(100%)\b",
+                "pattern": r"\b100%(?!\w)",
                 "severity": "high",
                 "reason": "Absolute 100% claims are unverifiable and prohibited",
                 "citation": "Section 2.3: Avoid Absolute Claims"
@@ -262,7 +262,7 @@ class DeterministicEngine:
         if "100%" in text_lower and any(w in text_lower for w in ["not", "never", "prohibit", "avoid", "ban"]):
             self.add_custom_rule(
                 category="banned_words",
-                pattern=r"\b100%\b",
+                pattern=r"\b100%(?!\w)",
                 severity="high",
                 reason="100% claims are prohibited per brand guidelines",
                 citation="Guideline Rule: 100% Prohibited"
@@ -287,15 +287,46 @@ class DeterministicEngine:
 
         return max(rules_found, 1)
     
-    def check(self, content: str) -> List[Dict[str, any]]:
+    def check(self, content: str, guideline_text: Optional[str] = None, include_standard_rules: bool = False) -> List[Dict[str, any]]:
         """
-        Run deterministic audit on content
-        Returns list of violations with exact pattern matches and smart 1-click replacement text
+        Run deterministic audit on content.
+        - If guideline_text is provided and include_standard_rules is False: audit STRICTLY against rules in guideline_text.
+        - If guideline_text is provided and include_standard_rules is True: audit against baseline standard rules + guideline rules.
+        - If guideline_text is None: audit against loaded default rules.
         """
+        if guideline_text and guideline_text.strip():
+            active_rules = {
+                "banned_words": [],
+                "superlatives": [],
+                "required_disclaimers": [],
+                "formatting": []
+            }
+            if include_standard_rules:
+                active_rules["banned_words"].extend(self.rules.get("banned_words", []))
+                active_rules["superlatives"].extend(self.rules.get("superlatives", []))
+                active_rules["required_disclaimers"].extend(self.rules.get("required_disclaimers", []))
+                active_rules["formatting"].extend(self.rules.get("formatting", []))
+            
+            temp_engine = DeterministicEngine()
+            temp_engine.rules = {
+                "banned_words": [],
+                "superlatives": [],
+                "required_disclaimers": [],
+                "formatting": []
+            }
+            temp_engine.extract_rules(guideline_text)
+            for cat in ["banned_words", "superlatives", "required_disclaimers", "formatting"]:
+                for r in temp_engine.rules[cat]:
+                    if r not in active_rules[cat]:
+                        active_rules[cat].append(r)
+            rules_to_use = active_rules
+        else:
+            rules_to_use = self.rules
+
         violations = []
         
         # Check banned words
-        for rule in self.rules["banned_words"]:
+        for rule in rules_to_use["banned_words"]:
             matches = list(re.finditer(rule["pattern"], content, re.IGNORECASE))
             if matches:
                 for match in matches:
@@ -316,7 +347,7 @@ class DeterministicEngine:
                     })
         
         # Check superlatives
-        for rule in self.rules["superlatives"]:
+        for rule in rules_to_use["superlatives"]:
             matches = list(re.finditer(rule["pattern"], content, re.IGNORECASE))
             if matches:
                 for match in matches:
@@ -337,7 +368,7 @@ class DeterministicEngine:
                     })
         
         # Check required disclaimers
-        for rule in self.rules["required_disclaimers"]:
+        for rule in rules_to_use["required_disclaimers"]:
             if re.search(rule["pattern"], content, re.IGNORECASE):
                 req_text = rule.get("requires", "Results may vary based on your specific use case.")
                 if not re.search(re.escape(req_text.rstrip('.')), content, re.IGNORECASE):
@@ -354,7 +385,7 @@ class DeterministicEngine:
                     })
         
         # Check formatting
-        for rule in self.rules["formatting"]:
+        for rule in rules_to_use["formatting"]:
             matches = list(re.finditer(rule["pattern"], content))
             if matches:
                 for match in matches:

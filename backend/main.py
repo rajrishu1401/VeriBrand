@@ -70,6 +70,24 @@ class ContentSubmission(BaseModel):
     content: str
     content_type: str = "text"  # text, blog_post, email
     creator_name: str = "Demo User"
+    guideline_id: Optional[str] = None
+    include_standard_rules: bool = False
+
+
+class GuidelineCreateRequest(BaseModel):
+    title: str
+    version: str = "1.0"
+    description: Optional[str] = None
+    include_standard_rules: bool = True
+    prohibited_words: List[str] = []
+    allowed_ambassadors: List[str] = []
+    prohibit_person_names: bool = False
+    prohibited_colors: List[str] = []
+    approved_palette: List[str] = []
+    prohibit_exclamations: bool = False
+    prohibit_questions: bool = False
+    prohibit_100_percent: bool = False
+    custom_rules_text: Optional[str] = None
 
 
 class AuditFlag(BaseModel):
@@ -259,14 +277,28 @@ async def submit_content(submission: ContentSubmission):
             submission.creator_name
         )
         
-        # Run deterministic checks (fast - always works)
-        deterministic_flags = deterministic_engine.check(submission.content)
+        # Retrieve guideline text if available
+        guideline_text = None
+        target_gid = submission.guideline_id or db.get_latest_guideline_id()
+        if target_gid:
+            g = db.get_guideline(target_gid)
+            if g and g.get("content"):
+                try:
+                    guideline_text = g["content"].decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+
+        # Run deterministic checks strictly scoped to guideline
+        deterministic_flags = deterministic_engine.check(
+            submission.content,
+            guideline_text=guideline_text,
+            include_standard_rules=submission.include_standard_rules
+        )
         
         # Try semantic checks (RAG + Gemini LLM)
         semantic_flags = []
         try:
-            latest_id = db.get_latest_guideline_id()
-            semantic_flags = rag_engine.check_content(submission.content, guideline_id=latest_id or "default")
+            semantic_flags = rag_engine.check_content(submission.content, guideline_id=target_gid or "default")
         except Exception as rag_error:
             print(f"Semantic checking skipped (Gemini API error): {rag_error}")
         
@@ -288,7 +320,7 @@ async def submit_content(submission: ContentSubmission):
                 rewritten_content = rag_engine.generate_intent_preserving_rewrite(
                     submission.content,
                     all_flags,
-                    guideline_id=latest_id or "default"
+                    guideline_id=target_gid or "default"
                 )
             except Exception as rw_err:
                 print(f"Rewrite generation error: {rw_err}")
@@ -355,7 +387,8 @@ async def rewrite_content(request: RewriteRequest):
 async def audit_image_endpoint(
     file: UploadFile = File(...),
     creator_name: str = Form("Creator"),
-    guideline_id: Optional[str] = Form(None)
+    guideline_id: Optional[str] = Form(None),
+    include_standard_rules: bool = Form(False)
 ):
     """
     Round 3 Feature: Multi-Modal Visual Brand Audit
@@ -381,8 +414,13 @@ async def audit_image_endpoint(
                 except Exception:
                     pass
         
-        # Run visual audit engine
-        result = visual_engine.audit_image(content, mime_type=mime_type, guidelines_text=guideline_text)
+        # Run visual audit engine strictly scoped to guideline
+        result = visual_engine.audit_image(
+            content,
+            mime_type=mime_type,
+            guidelines_text=guideline_text,
+            include_standard_rules=include_standard_rules
+        )
         
         # Store in database as an image submission
         submission_id = db.store_submission(
@@ -581,6 +619,121 @@ async def get_guideline_detail(guideline_id: str):
         "rules_count": len(rules),
         "rules": [r.dict() for r in rules]
     }
+
+
+@app.post("/api/guidelines/create")
+async def create_guideline_endpoint(req: GuidelineCreateRequest):
+    """
+    Brand Policy Studio: Create or version brand guidelines directly from web form.
+    Stores policy in DB, indexes vector embeddings, and extracts rule matrix.
+    """
+    try:
+        sections = []
+        sections.append(f"{req.title.upper()} — BRAND GOVERNANCE POLICY")
+        sections.append(f"Specification Version: {req.version}")
+        sections.append(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        sections.append("-" * 60)
+
+        if req.description:
+            sections.append(f"\n1. POLICY OVERVIEW\n{req.description.strip()}")
+
+        rule_num = 1
+        rules_text_list = []
+
+        # Standard Baseline
+        if req.include_standard_rules:
+            rules_text_list.append(f"{rule_num}. Maintain minimum ISO/IEC 40500 WCAG 2.1 AA text contrast (4.5:1 ratio).")
+            rule_num += 1
+            rules_text_list.append(f"{rule_num}. Avoid absolute guarantees ('guarantee', 'guaranteed') and unverifiable claims.")
+            rule_num += 1
+            rules_text_list.append(f"{rule_num}. Never mention competitors directly without documented benchmark citations.")
+            rule_num += 1
+            rules_text_list.append(f"{rule_num}. Promotional offers regarding trials or pricing must carry 'Terms and conditions apply'.")
+            rule_num += 1
+
+        # Content & Tone Rules
+        if req.prohibit_100_percent:
+            rules_text_list.append(f"{rule_num}. 100% should not be written.")
+            rule_num += 1
+
+        if req.prohibit_person_names:
+            rules_text_list.append(f"{rule_num}. Name of any person should not be mentioned.")
+            rule_num += 1
+
+        if req.allowed_ambassadors:
+            ambassador_str = ", ".join(req.allowed_ambassadors)
+            rules_text_list.append(f"{rule_num}. Name of Our brand ambassador can be mentioned, which is {ambassador_str}.")
+            rule_num += 1
+
+        if req.prohibit_questions:
+            rules_text_list.append(f"{rule_num}. Question should not be added in marketing copy.")
+            rule_num += 1
+
+        if req.prohibit_exclamations:
+            rules_text_list.append(f"{rule_num}. Use of exclamation is prohibited.")
+            rule_num += 1
+
+        for w in req.prohibited_words:
+            if w.strip():
+                rules_text_list.append(f"{rule_num}. Prohibited term: '{w.strip()}' must not appear in marketing claims.")
+                rule_num += 1
+
+        # Visual & Color Rules
+        if req.prohibited_colors:
+            colors_str = " and ".join(req.prohibited_colors)
+            rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
+            rule_num += 1
+
+        if req.approved_palette:
+            palette_str = ", ".join(req.approved_palette)
+            rules_text_list.append(f"{rule_num}. Approved Brand Color Palette: {palette_str}.")
+            rule_num += 1
+
+        # Additional Custom Rules
+        if req.custom_rules_text and req.custom_rules_text.strip():
+            for line in req.custom_rules_text.strip().split("\n"):
+                line_clean = line.strip()
+                if line_clean:
+                    line_clean = re.sub(r"^\d+[\.\)]\s*", "", line_clean)
+                    rules_text_list.append(f"{rule_num}. {line_clean}")
+                    rule_num += 1
+
+        sections.append("\n2. ENFORCEABLE GOVERNANCE RULES")
+        sections.extend(rules_text_list)
+
+        full_guideline_content = "\n".join(sections)
+
+        # Generate clean filename with version
+        clean_title = re.sub(r"[^\w\-]", "_", req.title).lower()
+        clean_version = re.sub(r"[^\w\.]", "", req.version)
+        filename = f"{clean_title}_v{clean_version}.txt"
+
+        guideline_id = db.store_guideline(filename, full_guideline_content.encode("utf-8"))
+
+        # Index in RAG vector store
+        try:
+            rag_engine.index_guideline(guideline_id, full_guideline_content)
+        except Exception as e:
+            print(f"RAG indexing warning: {e}")
+
+        # Extract rules for immediate matrix display
+        extracted_rules = parse_rules_from_text(full_guideline_content)
+
+        return {
+            "success": True,
+            "guideline_id": guideline_id,
+            "filename": filename,
+            "title": req.title,
+            "version": req.version,
+            "rules_count": len(extracted_rules),
+            "extracted_rules": [r.dict() for r in extracted_rules],
+            "raw_text": full_guideline_content
+        }
+    except Exception as e:
+        import traceback
+        print(f"ERROR in create_guideline_endpoint: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/submissions")

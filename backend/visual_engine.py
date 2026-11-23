@@ -10,7 +10,7 @@ import io
 import math
 import os
 import re
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from PIL import Image
 import numpy as np
 from dotenv import load_dotenv
@@ -76,6 +76,43 @@ def calculate_wcag_contrast(rgb1: Tuple[int, int, int], rgb2: Tuple[int, int, in
     return round((lighter + 0.05) / (darker + 0.05), 2)
 
 
+def parse_color_rules_from_text(guideline_text: Optional[str]) -> Dict[str, Any]:
+    if not guideline_text:
+        return {"banned_colors": [], "has_wcag_rule": False, "has_neon_rule": False, "has_approved_palette": False}
+    text_lower = guideline_text.lower()
+    banned_colors = []
+    
+    color_map = {
+        "red": {"name": "Red", "rgb": (239, 68, 68), "hex": "#EF4444"},
+        "blue": {"name": "Blue", "rgb": (59, 130, 246), "hex": "#3B82F6"},
+        "green": {"name": "Green", "rgb": (34, 197, 94), "hex": "#22C55E"},
+        "yellow": {"name": "Yellow", "rgb": (234, 179, 8), "hex": "#EAB308"},
+        "purple": {"name": "Purple", "rgb": (168, 85, 247), "hex": "#A855F7"},
+        "orange": {"name": "Orange", "rgb": (249, 115, 22), "hex": "#F97316"},
+    }
+
+    for color_name, color_info in color_map.items():
+        pat = rf"(?:no|not|prohibit\w*|ban\w*|avoid)\s+(?:[\w\s,]*\s+)?{color_name}\b|{color_name}\b\s+[\w\s,]*\s+(?:prohibit\w*|ban\w*|not allowed)"
+        if re.search(pat, text_lower):
+            banned_colors.append(color_info)
+
+    hex_prohibits = re.findall(r"#(?:[0-9a-fA-F]{3}){1,2}\b", text_lower)
+    for h in hex_prohibits:
+        if any(w in text_lower for w in ["prohibit", "ban", "avoid", "no "]):
+            try:
+                rgb = hex_to_rgb(h)
+                banned_colors.append({"name": f"Hex {h.upper()}", "rgb": rgb, "hex": h.upper()})
+            except Exception:
+                pass
+
+    return {
+        "banned_colors": banned_colors,
+        "has_wcag_rule": any(w in text_lower for w in ["wcag", "contrast", "accessibility", "iso/iec 40500"]),
+        "has_neon_rule": any(w in text_lower for w in ["neon", "fluorescent", "saturated"]),
+        "has_approved_palette": any(w in text_lower for w in ["approved brand color", "primary brand palette", "approved palette", "official brand palette"])
+    }
+
+
 class VisualBrandEngine:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
@@ -117,32 +154,52 @@ class VisualBrandEngine:
                 })
         return colors
 
-    def audit_color_palette(self, extracted_colors: List[Dict]) -> List[Dict]:
+    def audit_color_palette(self, extracted_colors: List[Dict], guidelines_text: Optional[str] = None, include_standard_rules: bool = False) -> List[Dict]:
         """
-        Audit extracted colors against approved brand palette and check for banned neon colors
+        Audit extracted colors against active brand guidelines and optional standard rules.
         """
         flags = []
+        rules = parse_color_rules_from_text(guidelines_text) if guidelines_text else {
+            "banned_colors": [], "has_wcag_rule": False, "has_neon_rule": True, "has_approved_palette": True
+        }
+
         for c in extracted_colors:
             rgb = tuple(c["rgb"])
             hex_code = c["hex"]
             pct = c["percentage"]
 
-            # 1. Check for banned neon colors
-            for neon in PROHIBITED_NEONS:
-                dist = color_distance(rgb, neon["rgb"])
-                if dist < 45 and pct > 3.0:
+            # 1. Check guideline-specific banned colors (e.g., Red or Blue from new_rule.txt)
+            for banned in rules["banned_colors"]:
+                dist = color_distance(rgb, banned["rgb"])
+                if dist < 85 and pct > 3.0:
                     flags.append({
                         "issue_type": "Prohibited Color Usage",
                         "severity": "critical",
-                        "flagged_text": f"Prohibited {neon['name']} ({hex_code})",
-                        "rule_citation": "Section 12.1: Prohibited Background Colors",
-                        "explanation": f"Detected {pct}% of image using prohibited high-saturation color {hex_code}. Guidelines ban fluorescent neons and harsh saturated backgrounds.",
-                        "suggested_fix": "Replace background with approved primary Indigo (#4F46E5) or Slate Dark (#1E293B).",
+                        "flagged_text": f"Prohibited {banned['name']} ({hex_code})",
+                        "rule_citation": "Guideline Rule: Prohibited Brand Color",
+                        "explanation": f"Detected {pct}% of image using prohibited color {banned['name']} ({hex_code}). Guidelines ban this color in creative assets.",
+                        "suggested_fix": f"Remove {banned['name']} ({hex_code}) and use approved brand neutral or primary tones.",
                         "confidence": "high"
                     })
 
-            # 2. Check if significant color matches approved brand palette
-            if pct > 15.0:
+            # 2. Check for banned neon colors (only if standard rules enabled, or guideline explicitly bans neons, or no custom guideline)
+            if include_standard_rules or rules["has_neon_rule"] or not guidelines_text:
+                for neon in PROHIBITED_NEONS:
+                    dist = color_distance(rgb, neon["rgb"])
+                    if dist < 45 and pct > 3.0:
+                        flags.append({
+                            "issue_type": "Prohibited Color Usage",
+                            "severity": "critical",
+                            "flagged_text": f"Prohibited {neon['name']} ({hex_code})",
+                            "rule_citation": "Section 12.1: Prohibited Background Colors",
+                            "explanation": f"Detected {pct}% of image using prohibited high-saturation color {hex_code}. Guidelines ban fluorescent neons and harsh saturated backgrounds.",
+                            "suggested_fix": "Replace background with approved primary Indigo (#4F46E5) or Slate Dark (#1E293B).",
+                            "confidence": "high"
+                        })
+
+            # 3. Check if significant color matches approved brand palette
+            # Only enforce if standard rules enabled, or guideline explicitly defines an approved palette, or no custom guideline
+            if (include_standard_rules or rules["has_approved_palette"] or not guidelines_text) and pct > 15.0:
                 closest_approved = min(
                     self.approved_palette,
                     key=lambda a: color_distance(rgb, a["rgb"])
@@ -161,9 +218,9 @@ class VisualBrandEngine:
 
         return flags
 
-    def audit_wcag_contrast(self, extracted_colors: List[Dict]) -> Dict:
+    def audit_wcag_contrast(self, extracted_colors: List[Dict], guidelines_text: Optional[str] = None, include_standard_rules: bool = False) -> Dict:
         """
-        Calculate contrast ratio between top dominant foreground and background colors
+        Calculate contrast ratio between top dominant foreground and background colors.
         """
         if len(extracted_colors) < 2:
             return {"contrast_ratio": 21.0, "wcag_aa_pass": True, "wcag_aaa_pass": True, "flags": []}
@@ -178,7 +235,10 @@ class VisualBrandEngine:
         aaa_pass = ratio >= 7.0
 
         flags = []
-        if not aa_pass:
+        rules = parse_color_rules_from_text(guidelines_text) if guidelines_text else {"has_wcag_rule": True}
+        should_enforce_wcag = include_standard_rules or rules["has_wcag_rule"] or not guidelines_text
+
+        if should_enforce_wcag and not aa_pass:
             severity = "critical" if not large_text_pass else "warning"
             flags.append({
                 "issue_type": "WCAG Contrast Failure",
@@ -200,31 +260,42 @@ class VisualBrandEngine:
             "flags": flags
         }
 
-    def audit_visual_semantic(self, image_bytes: bytes, mime_type: str = "image/png", guidelines_text: Optional[str] = None) -> Dict:
+    def audit_visual_semantic(self, image_bytes: bytes, mime_type: str = "image/png", guidelines_text: Optional[str] = None, include_standard_rules: bool = False) -> Dict:
         """
-        Use Gemini Multi-Modal Vision to audit image for:
-        - OCR text extraction and text compliance
-        - Logo detection and clear space
-        - Visual layout and guideline conformance against active guideline
+        Use Gemini Multi-Modal Vision to audit image against active brand guidelines.
         """
         if not self.client:
             return {"ocr_text": "", "logo_detected": False, "flags": []}
 
-        guideline_context = ""
+        rules_context = []
         if guidelines_text and guidelines_text.strip():
-            guideline_context = f"\nACTIVE BRAND GUIDELINE EXCERPT:\n{guidelines_text[:3000]}\n"
+            rules_context.append(f"ACTIVE BRAND GUIDELINE:\n{guidelines_text.strip()[:3000]}")
+        else:
+            rules_context.append("ACTIVE BRAND GUIDELINE: General enterprise brand standards.")
 
-        prompt = f"""You are an expert visual brand governance auditor.
-Analyze the provided marketing image against brand guidelines:
+        if include_standard_rules:
+            rules_context.append("""STANDARD GOVERNANCE BASELINE (ACTIVE):
 - Section 12.1: Approved Brand Colors (Indigo #4F46E5, Deep Navy #1E1B4B, Violet #7C3AED, Slate #1E293B, Off-White #F8FAFC). Banned: fluorescent neons, aggressive reds.
 - Section 12.2: WCAG 2.1 text contrast (minimum 4.5:1). Overlaid text must be legible with clear backgrounds.
 - Section 12.3: Logo integrity. Logo must be clear, unobstructed, not distorted or rotated.
-- Section 2-3: Marketing copy embedded in image must not contain banned guarantees ("100%", "guaranteed"), superlatives ("best"), or missing disclaimers.
+- Section 2-3: Marketing copy embedded in image must not contain banned guarantees ("100%", "guaranteed"), superlatives ("best"), or missing disclaimers.""")
+
+        guideline_context = "\n\n".join(rules_context)
+
+        prompt = f"""You are an expert visual brand governance auditor.
+Analyze the provided marketing image STRICTLY against the active brand guidelines below.
+
 {guideline_context}
+
+CRITICAL AUDIT INSTRUCTIONS:
+1. STRICT ADHERENCE: Only flag violations that explicitly break the ACTIVE BRAND GUIDELINE (or the STANDARD GOVERNANCE BASELINE if provided above).
+2. DO NOT hallucinate or enforce unmentioned rules. If the active guideline does NOT prohibit competitor names, guarantees, or particular colors, DO NOT flag them.
+3. BRAND AMBASSADOR EXCEPTION: If the guideline prohibits person names but explicitly permits a brand ambassador (e.g. Hritik Roshan), DO NOT flag the brand ambassador's name.
+
 TASK:
 1. Extract any readable text embedded in the image (OCR).
 2. Check if a logo is present, clear, and well-positioned.
-3. Identify any brand compliance issues in the image.
+3. Identify any brand compliance issues according ONLY to the active guidelines above.
 
 Return ONLY a valid JSON object in this exact schema:
 {{
@@ -268,13 +339,13 @@ If no violations exist, return "flags": [].
             print(f"Gemini Vision audit skipped/failed: {e}")
             return {"ocr_text": "", "logo_detected": False, "flags": []}
 
-    def audit_image(self, image_bytes: bytes, mime_type: str = "image/png", guidelines_text: Optional[str] = None) -> Dict:
+    def audit_image(self, image_bytes: bytes, mime_type: str = "image/png", guidelines_text: Optional[str] = None, include_standard_rules: bool = False) -> Dict:
         """
         Complete Hybrid Visual Audit:
         1. Deterministic Dominant Color Extraction (PIL)
         2. Deterministic WCAG 2.1 Contrast Calculation
-        3. Deterministic Palette Rule Verification
-        4. Gemini Semantic Multi-Modal Vision Audit (OCR, Logo, Tone)
+        3. Deterministic Palette Rule Verification (scoped to guideline)
+        4. Gemini Semantic Multi-Modal Vision Audit (OCR, Logo, Tone strictly scoped to guideline)
         """
         # Load PIL image
         try:
@@ -286,14 +357,14 @@ If no violations exist, return "flags": [].
         dominant_colors = self.extract_dominant_colors(image, num_colors=5)
 
         # 2. Deterministic palette check
-        palette_flags = self.audit_color_palette(dominant_colors)
+        palette_flags = self.audit_color_palette(dominant_colors, guidelines_text=guidelines_text, include_standard_rules=include_standard_rules)
 
         # 3. Deterministic WCAG contrast
-        wcag_result = self.audit_wcag_contrast(dominant_colors)
+        wcag_result = self.audit_wcag_contrast(dominant_colors, guidelines_text=guidelines_text, include_standard_rules=include_standard_rules)
         contrast_flags = wcag_result.get("flags", [])
 
         # 4. Gemini Multi-Modal Vision
-        semantic_result = self.audit_visual_semantic(image_bytes, mime_type=mime_type, guidelines_text=guidelines_text)
+        semantic_result = self.audit_visual_semantic(image_bytes, mime_type=mime_type, guidelines_text=guidelines_text, include_standard_rules=include_standard_rules)
         semantic_flags = semantic_result.get("flags", [])
 
         # Combine all flags

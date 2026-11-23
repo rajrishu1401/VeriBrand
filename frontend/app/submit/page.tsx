@@ -312,6 +312,7 @@ export default function SubmitPage() {
   const [copiedRewrite, setCopiedRewrite] = useState(false);
   const [guidelines, setGuidelines] = useState<Guideline[]>([]);
   const [selectedGuideline, setSelectedGuideline] = useState<string>('');
+  const [includeStandardRules, setIncludeStandardRules] = useState<boolean>(false);
 
   // Visual State
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -388,6 +389,8 @@ export default function SubmitPage() {
           content,
           content_type: contentType,
           creator_name: creatorName || 'Marketing Team',
+          guideline_id: selectedGuideline || undefined,
+          include_standard_rules: includeStandardRules,
         }),
       });
       if (!response.ok) throw new Error('Audit service unavailable');
@@ -507,6 +510,7 @@ export default function SubmitPage() {
     if (selectedGuideline) {
       formData.append('guideline_id', selectedGuideline);
     }
+    formData.append('include_standard_rules', String(includeStandardRules));
 
     try {
       const response = await fetch(`${API_BASE}/api/audit-image`, {
@@ -667,6 +671,43 @@ export default function SubmitPage() {
                     placeholder="e.g. Enterprise Growth Agency"
                   />
                 </div>
+              </div>
+
+              {/* Standard Baseline Policy Toggle */}
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="flex items-start gap-2.5">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${includeStandardRules ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-800">
+                        Include Standard Governance Baseline
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                        includeStandardRules
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
+                        {includeStandardRules ? 'Standard Active' : 'Strict Guideline Only'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {includeStandardRules
+                        ? 'Enforcing active guideline rules + industry baseline (WCAG AA contrast, unverified claims, competitor citations).'
+                        : 'Strict Mode: Auditing strictly against the rules defined in your selected guideline document.'}
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+                  <input
+                    type="checkbox"
+                    checked={includeStandardRules}
+                    onChange={(e) => setIncludeStandardRules(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
               </div>
 
               <div>
@@ -1005,6 +1046,43 @@ export default function SubmitPage() {
                 </div>
               </div>
 
+              {/* Standard Baseline Policy Toggle for Visual Audit */}
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="flex items-start gap-2.5">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${includeStandardRules ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-800">
+                        Include Standard Governance Baseline
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                        includeStandardRules
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
+                        {includeStandardRules ? 'Standard Active' : 'Strict Guideline Only'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {includeStandardRules
+                        ? 'Enforcing active guideline rules + standard visual baseline (WCAG AA contrast, prohibited neons, claim disclaimers).'
+                        : 'Strict Mode: Auditing creative strictly against colors and rules defined in your selected guideline document.'}
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+                  <input
+                    type="checkbox"
+                    checked={includeStandardRules}
+                    onChange={(e) => setIncludeStandardRules(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
               {/* Upload Dropzone */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -1182,11 +1260,17 @@ export default function SubmitPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {visualResult.dominant_palette.map((c, i) => {
-                      const isApproved = ['#4F46E5', '#1E1B4B', '#7C3AED', '#1E293B', '#F8FAFC'].includes(
-                        c.hex.toUpperCase()
+                      const flaggedViolation = visualResult.flags.find(
+                        f => (f.issue_type === 'Prohibited Color Usage' || f.issue_type?.toLowerCase().includes('color')) &&
+                             f.flagged_text?.toLowerCase().includes(c.hex.toLowerCase())
                       );
-                      const isProhibited = ['#00FF00', '#FFFF00', '#FF00FF', '#00FFFF'].includes(
-                        c.hex.toUpperCase()
+                      const isProhibited = !!flaggedViolation;
+                      const isOffBrand = visualResult.flags.some(
+                        f => f.issue_type === 'Off-Brand Color Palette' && f.flagged_text?.toLowerCase().includes(c.hex.toLowerCase())
+                      );
+                      const isApproved = !isProhibited && !isOffBrand && (
+                        ['#4F46E5', '#1E1B4B', '#7C3AED', '#1E293B', '#F8FAFC'].includes(c.hex.toUpperCase()) ||
+                        visualResult.flags.filter(f => f.issue_type?.toLowerCase().includes('color')).length === 0
                       );
                       const isCopied = copiedHex === c.hex;
 
@@ -1211,14 +1295,16 @@ export default function SubmitPage() {
                             </div>
                             <span
                               className={`inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded mt-1 ${
-                                isApproved
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : isProhibited
+                                isProhibited
                                   ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : isOffBrand
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : isApproved
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                   : 'bg-slate-200 text-slate-700'
                               }`}
                             >
-                              {isApproved ? 'Approved Brand' : isProhibited ? 'Prohibited Neon' : 'Neutral'}
+                              {isProhibited ? 'Prohibited Color' : isOffBrand ? 'Off-Brand' : isApproved ? 'Approved Brand' : 'Neutral'}
                             </span>
                           </div>
                         </button>
