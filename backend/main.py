@@ -120,6 +120,8 @@ class GuidelineCreateRequest(BaseModel):
     tone_mode: str = "tiered"  # 'approved' | 'prohibited' | 'tiered'
     approved_palette: List[str] = []
     prohibited_colors: List[str] = []
+    approved_ranges: List[Dict[str, Any]] = []
+    prohibited_ranges: List[Dict[str, Any]] = []
     approved_companies: List[str] = []
     prohibited_companies: List[str] = []
     approved_persons: List[str] = []
@@ -203,6 +205,8 @@ class VisualAuditResponse(BaseModel):
     color_governance_mode: Optional[str] = "tiered"
     approved_colors: Optional[List[str]] = []
     banned_colors: Optional[List[str]] = []
+    approved_ranges: Optional[List[Dict[str, Any]]] = []
+    banned_ranges: Optional[List[Dict[str, Any]]] = []
     wcag_analysis: WCAGResult
     ocr_text: Optional[str] = ""
     logo_detected: bool = False
@@ -526,6 +530,8 @@ async def audit_image_endpoint(
             color_governance_mode=result.get("color_governance_mode", "tiered"),
             approved_colors=result.get("approved_colors", []),
             banned_colors=result.get("banned_colors", []),
+            approved_ranges=result.get("approved_ranges", []),
+            banned_ranges=result.get("banned_ranges", []),
             wcag_analysis=WCAGResult(**result["wcag_analysis"]),
             ocr_text=result.get("ocr_text", ""),
             logo_detected=result.get("logo_detected", False),
@@ -838,25 +844,32 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
                 rule_num += 1
 
             # Visual & Color Rules (Modes: approved, prohibited, tiered)
-            palette_str = ", ".join(req.approved_palette) if req.approved_palette else ""
-            colors_str = " and ".join(req.prohibited_colors) if req.prohibited_colors else ""
+            palette_items = list(req.approved_palette)
+            range_approvals = [f"{r['name']} (Hue range {r['hue_min']}°-{r['hue_max']}°)" for r in req.approved_ranges]
+            all_approved = palette_items + range_approvals
+            palette_str = ", ".join(all_approved) if all_approved else ""
+
+            color_items = list(req.prohibited_colors)
+            range_prohibits = [f"{r['name']} (Hue range {r['hue_min']}°-{r['hue_max']}°)" for r in req.prohibited_ranges]
+            all_banned = color_items + range_prohibits
+            colors_str = " and ".join(all_banned) if all_banned else ""
 
             if req.color_mode == "approved" and palette_str:
-                rules_text_list.append(f"{rule_num}. Approved Brand Color Palette (Strict Allowlist): {palette_str}. All other colors outside this approved palette are strictly prohibited.")
+                rules_text_list.append(f"{rule_num}. Approved Brand Color Palette & Spectrums (Strict Allowlist): {palette_str}. All other colors outside this approved palette and spectrums are strictly prohibited.")
                 rule_num += 1
             elif req.color_mode == "prohibited" and colors_str:
-                rules_text_list.append(f"{rule_num}. Prohibited Colors (Strict Blocklist): No {colors_str} colour should be used in posters or creative assets. All other colors outside this prohibited list are approved.")
+                rules_text_list.append(f"{rule_num}. Prohibited Color Spectrum (Strict Blocklist): No {colors_str} should be used in posters or creative assets. All other colors outside this prohibited list are approved.")
                 rule_num += 1
             else:
                 if palette_str and colors_str:
-                    rules_text_list.append(f"{rule_num}. Color Governance (Preferred & Not Preferred): Preferred brand colors: {palette_str}. Prohibited colors: {colors_str}. All other unlisted colors are considered neutral.")
+                    rules_text_list.append(f"{rule_num}. Color Governance (Preferred & Not Preferred): Preferred brand colors & spectrums: {palette_str}. Prohibited colors: {colors_str}. All other unlisted colors are considered neutral.")
                     rule_num += 1
                 else:
                     if palette_str:
-                        rules_text_list.append(f"{rule_num}. Approved Brand Color Palette: {palette_str}.")
+                        rules_text_list.append(f"{rule_num}. Approved Brand Color Palette & Spectrums: {palette_str}.")
                         rule_num += 1
                     if colors_str:
-                        rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
+                        rules_text_list.append(f"{rule_num}. Prohibited Color Spectrum: No {colors_str} should be used in posters or creative assets.")
                         rule_num += 1
 
             # Additional Custom Rules

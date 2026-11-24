@@ -91,6 +91,94 @@ def is_color_match(rgb1: Tuple[int, int, int], rgb2: Tuple[int, int, int], max_d
     return True
 
 
+# ─── Standard Color Shade Ranges (Spectrums) ───────────────────────────────────
+STANDARD_COLOR_RANGES = {
+    "blue": {
+        "id": "blue",
+        "name": "All Blue Shades",
+        "family": "blue",
+        "hue_min": 185,
+        "hue_max": 235,
+        "gradient": "linear-gradient(to right, #BAE6FD, #38BDF8, #2563EB, #1E3A8A)"
+    },
+    "red": {
+        "id": "red",
+        "name": "All Red Shades",
+        "family": "red",
+        "hue_min": 345,
+        "hue_max": 15,
+        "gradient": "linear-gradient(to right, #FECACA, #EF4444, #B91C1C, #7F1D1D)"
+    },
+    "green": {
+        "id": "green",
+        "name": "All Green Shades",
+        "family": "green",
+        "hue_min": 80,
+        "hue_max": 160,
+        "gradient": "linear-gradient(to right, #A7F3D0, #10B981, #047857, #064E3B)"
+    },
+    "yellow": {
+        "id": "yellow",
+        "name": "All Yellow & Amber Shades",
+        "family": "yellow",
+        "hue_min": 40,
+        "hue_max": 65,
+        "gradient": "linear-gradient(to right, #FEF08A, #FACC15, #D97706)"
+    },
+    "purple": {
+        "id": "purple",
+        "name": "All Purple & Indigo Shades",
+        "family": "purple",
+        "hue_min": 235,
+        "hue_max": 290,
+        "gradient": "linear-gradient(to right, #DDD6FE, #8B5CF6, #6D28D9, #4C1D95)"
+    },
+    "orange": {
+        "id": "orange",
+        "name": "All Orange Shades",
+        "family": "orange",
+        "hue_min": 15,
+        "hue_max": 40,
+        "gradient": "linear-gradient(to right, #FED7AA, #FB923C, #EA580C, #9A3412)"
+    },
+    "pink": {
+        "id": "pink",
+        "name": "All Pink & Magenta Shades",
+        "family": "pink",
+        "hue_min": 290,
+        "hue_max": 345,
+        "gradient": "linear-gradient(to right, #FBCFE8, #EC4899, #BE185D)"
+    },
+    "cyan": {
+        "id": "cyan",
+        "name": "All Cyan & Teal Shades",
+        "family": "cyan",
+        "hue_min": 160,
+        "hue_max": 190,
+        "gradient": "linear-gradient(to right, #99F6E4, #14B8A6, #0F766E)"
+    }
+}
+
+
+def is_in_hue_range(hue: float, hue_min: float, hue_max: float) -> bool:
+    """Check if hue angle (0-360) is inside range, including wrap-around at 360 (e.g. Red 345° to 15°)"""
+    if hue_min <= hue_max:
+        return hue_min <= hue <= hue_max
+    else:
+        return hue >= hue_min or hue <= hue_max
+
+
+def check_color_in_range(rgb: Tuple[int, int, int], hue_min: float, hue_max: float) -> bool:
+    """Check if RGB color falls into specified hue range and has discernible saturation"""
+    r, g, b = [x / 255.0 for x in rgb]
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    hue = h * 360.0
+    # Must have discernible color (not grayscale / near-black / near-white)
+    if s < 0.12 or l < 0.06 or l > 0.95:
+        return False
+    return is_in_hue_range(hue, hue_min, hue_max)
+
+
 def calculate_relative_luminance(rgb: Tuple[int, int, int]) -> float:
     """WCAG 2.1 formula for relative luminance"""
     def channel_luminance(c: int) -> float:
@@ -177,14 +265,53 @@ def parse_color_rules_from_text(guideline_text: Optional[str]) -> Dict[str, Any]
                     except Exception:
                         pass
 
+    # Color Spectrum / Shade Range extraction (e.g. "All Blue Shades", "Whole shade of Red", "Hue range 185-235")
+    banned_ranges = []
+    approved_ranges = []
+
+    for family, range_info in STANDARD_COLOR_RANGES.items():
+        # Prohibited whole shade / spectrum pattern
+        banned_spectrum_pat = rf"(?:no|not|prohibit\w*|ban\w*|avoid)\s+[^.\n]*?(?:all\s+shades?\s+of\s+{family}|whole\s+shade\s+of\s+{family}|entire\s+{family}\s+(?:spectrum|range|family)|{family}\s+spectrum|{family}\s+shades?|shades?\s+of\s+{family})|(?:all\s+shades?\s+of\s+{family}|whole\s+shade\s+of\s+{family}|{family}\s+spectrum)\s+[^.\n]*?(?:prohibit\w*|ban\w*|not allowed|avoid)"
+        if re.search(banned_spectrum_pat, text_lower):
+            if not any(r["family"] == family for r in banned_ranges):
+                banned_ranges.append(range_info)
+
+        # Approved whole shade / spectrum pattern
+        approved_spectrum_pat = rf"(?:approved|wanted|allow\w*|permitted)\s+[^.\n]*?(?:all\s+shades?\s+of\s+{family}|whole\s+shade\s+of\s+{family}|entire\s+{family}\s+(?:spectrum|range|family)|{family}\s+spectrum|{family}\s+shades?|shades?\s+of\s+{family})|(?:all\s+shades?\s+of\s+{family}|whole\s+shade\s+of\s+{family}|{family}\s+spectrum)\s+[^.\n]*?(?:approved|allowed|permitted|wanted)"
+        if re.search(approved_spectrum_pat, text_lower):
+            if not any(r["family"] == family for r in approved_ranges):
+                approved_ranges.append(range_info)
+
+    # Detect explicit Hue range X°-Y°
+    custom_range_matches = re.finditer(r"(prohibit\w*|approved?|allow\w*)[^.\n]*?hue\s+range\s*(\d+)[°\s]*[-to\s]+(\d+)", text_lower)
+    for m in custom_range_matches:
+        action, h_min, h_max = m.group(1), int(m.group(2)), int(m.group(3))
+        custom_item = {
+            "id": f"custom_{h_min}_{h_max}",
+            "name": f"Custom Spectrum ({h_min}°-{h_max}°)",
+            "family": "custom",
+            "hue_min": h_min,
+            "hue_max": h_max,
+            "gradient": f"linear-gradient(to right, hsl({h_min}, 80%, 50%), hsl({h_max}, 80%, 50%))"
+        }
+        if any(w in action for w in ["prohibit", "ban"]):
+            if not any(r["hue_min"] == h_min and r["hue_max"] == h_max for r in banned_ranges):
+                banned_ranges.append(custom_item)
+        else:
+            if not any(r["hue_min"] == h_min and r["hue_max"] == h_max for r in approved_ranges):
+                approved_ranges.append(custom_item)
+
     # Determine Governance Mode:
-    # 1) 'approved': Strict Allowlist (everything outside approved colors is prohibited)
-    # 2) 'prohibited': Strict Blocklist (only prohibited colors are banned, everything outside is approved)
+    # 1) 'approved': Strict Allowlist (everything outside approved colors/ranges is prohibited)
+    # 2) 'prohibited': Strict Blocklist (only prohibited colors/ranges are banned, everything outside is approved)
     # 3) 'tiered': Preferred & Not Preferred (unlisted colors are considered neutral)
     color_mode = "tiered"
-    if "strict allowlist" in text_lower or (bool(approved_colors) and not bool(banned_colors)):
+    has_approved = bool(approved_colors) or bool(approved_ranges)
+    has_banned = bool(banned_colors) or bool(banned_ranges)
+
+    if "strict allowlist" in text_lower or (has_approved and not has_banned):
         color_mode = "approved"
-    elif "strict blocklist" in text_lower or (bool(banned_colors) and not bool(approved_colors)):
+    elif "strict blocklist" in text_lower or (has_banned and not has_approved):
         color_mode = "prohibited"
     else:
         color_mode = "tiered"
@@ -192,10 +319,12 @@ def parse_color_rules_from_text(guideline_text: Optional[str]) -> Dict[str, Any]
     return {
         "banned_colors": banned_colors,
         "approved_colors": approved_colors,
+        "banned_ranges": banned_ranges,
+        "approved_ranges": approved_ranges,
         "color_mode": color_mode,
         "has_wcag_rule": any(w in text_lower for w in ["wcag", "contrast", "accessibility", "iso/iec 40500"]),
         "has_neon_rule": any(w in text_lower for w in ["neon", "fluorescent", "saturated"]),
-        "has_approved_palette": bool(approved_colors) or has_approved_keywords
+        "has_approved_palette": has_approved or has_approved_keywords
     }
 
 
@@ -275,32 +404,40 @@ class VisualBrandEngine:
 
             # =========================================================================
             # OPTION 1: Strict Approved (Allowlist Mode)
-            # Apart from selected approved colors, everything else is strictly prohibited!
+            # Apart from selected approved colors & shade ranges, everything else is strictly prohibited!
             # =========================================================================
-            if color_mode == "approved" and rules.get("approved_colors"):
-                closest_approved = min(
-                    rules["approved_colors"],
-                    key=lambda a: color_distance(rgb, a["rgb"])
-                )
-                min_dist = color_distance(rgb, closest_approved["rgb"])
-                if min_dist > 80 and pct >= 1.5:
-                    if not is_neutral_grayscale(rgb):
+            if color_mode == "approved" and (rules.get("approved_colors") or rules.get("approved_ranges")):
+                if not is_neutral_grayscale(rgb):
+                    is_approved = False
+                    if rules.get("approved_colors"):
+                        closest_approved = min(
+                            rules["approved_colors"],
+                            key=lambda a: color_distance(rgb, a["rgb"])
+                        )
+                        min_dist = color_distance(rgb, closest_approved["rgb"])
+                        if min_dist <= 70:
+                            is_approved = True
+                    if not is_approved and rules.get("approved_ranges"):
+                        is_approved = any(check_color_in_range(rgb, r["hue_min"], r["hue_max"]) for r in rules["approved_ranges"])
+
+                    if not is_approved and pct >= 1.5:
+                        approved_labels = [p['hex'] for p in rules.get('approved_colors', [])] + [r['name'] for r in rules.get('approved_ranges', [])]
                         flags.append({
                             "issue_type": "Prohibited Color Usage",
                             "severity": "critical",
                             "flagged_text": f"Unapproved Color ({hex_code})",
                             "rule_citation": "Color Governance: Strict Approved Allowlist",
-                            "explanation": f"Guidelines enforce Strict Approved mode ({', '.join(p['hex'] for p in rules['approved_colors'])}). Non-approved color {hex_code} ({pct}% coverage) is strictly prohibited.",
-                            "suggested_fix": f"Replace with approved brand color '{closest_approved['name']}' ({closest_approved['hex']}).",
+                            "explanation": f"Guidelines enforce Strict Approved mode ({', '.join(approved_labels)}). Non-approved color {hex_code} ({pct}% coverage) is strictly prohibited.",
+                            "suggested_fix": "Replace with an approved brand color or shade range.",
                             "confidence": "high"
                         })
 
             # =========================================================================
             # OPTION 2: Strict Prohibited (Blocklist Mode)
-            # Only prohibited colors are banned; everything outside it will be approved!
+            # Only prohibited colors and shade spectrums are banned; everything outside it will be approved!
             # =========================================================================
-            elif color_mode == "prohibited" and rules.get("banned_colors"):
-                for banned in rules["banned_colors"]:
+            elif color_mode == "prohibited" and (rules.get("banned_colors") or rules.get("banned_ranges")):
+                for banned in rules.get("banned_colors", []):
                     if is_color_match(rgb, banned["rgb"]) and pct > 1.5:
                         flags.append({
                             "issue_type": "Prohibited Color Usage",
@@ -309,6 +446,17 @@ class VisualBrandEngine:
                             "rule_citation": "Color Governance: Strict Prohibited Blocklist",
                             "explanation": f"Detected {pct}% of image using prohibited color {banned['name']} ({hex_code}). Guidelines strictly ban this color.",
                             "suggested_fix": f"Remove {banned['name']} ({hex_code}). All other colors outside this prohibited list are approved.",
+                            "confidence": "high"
+                        })
+                for rng in rules.get("banned_ranges", []):
+                    if check_color_in_range(rgb, rng["hue_min"], rng["hue_max"]) and pct > 1.5:
+                        flags.append({
+                            "issue_type": "Prohibited Color Usage",
+                            "severity": "critical",
+                            "flagged_text": f"Prohibited {rng['name']} ({hex_code})",
+                            "rule_citation": "Color Governance: Prohibited Shade Spectrum",
+                            "explanation": f"Detected {pct}% of image using prohibited shade of {rng['name']} ({hex_code}). Guidelines strictly ban the whole spectrum ({rng['hue_min']}°- {rng['hue_max']}°).",
+                            "suggested_fix": f"Remove {hex_code}. All other colors outside this prohibited shade range are approved.",
                             "confidence": "high"
                         })
 
@@ -327,6 +475,17 @@ class VisualBrandEngine:
                             "rule_citation": "Color Governance: Not Preferred Color",
                             "explanation": f"Detected {pct}% of image using not-preferred color {banned['name']} ({hex_code}).",
                             "suggested_fix": f"Remove {banned['name']} ({hex_code}).",
+                            "confidence": "high"
+                        })
+                for rng in rules.get("banned_ranges", []):
+                    if check_color_in_range(rgb, rng["hue_min"], rng["hue_max"]) and pct > 1.5:
+                        flags.append({
+                            "issue_type": "Prohibited Color Usage",
+                            "severity": "critical",
+                            "flagged_text": f"Prohibited {rng['name']} ({hex_code})",
+                            "rule_citation": "Color Governance: Not Preferred Shade Spectrum",
+                            "explanation": f"Detected {pct}% of image using not-preferred shade from {rng['name']} ({hex_code}).",
+                            "suggested_fix": f"Remove {hex_code}.",
                             "confidence": "high"
                         })
                 # In Option 3, unlisted colors are considered NEUTRAL.
@@ -516,6 +675,8 @@ If no violations exist, return "flags": [].
             "color_governance_mode": color_mode,
             "approved_colors": [a["hex"] for a in color_rules.get("approved_colors", [])],
             "banned_colors": [b["hex"] for b in color_rules.get("banned_colors", [])],
+            "approved_ranges": color_rules.get("approved_ranges", []),
+            "banned_ranges": color_rules.get("banned_ranges", []),
             "wcag_analysis": {
                 "contrast_ratio": wcag_result["contrast_ratio"],
                 "wcag_aa_pass": wcag_result["wcag_aa_pass"],

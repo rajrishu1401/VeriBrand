@@ -71,6 +71,8 @@ interface VisualAuditResponse {
   color_governance_mode?: 'approved' | 'prohibited' | 'tiered';
   approved_colors?: string[];
   banned_colors?: string[];
+  approved_ranges?: any[];
+  banned_ranges?: any[];
   wcag_analysis: WCAGResult;
   ocr_text?: string;
   logo_detected: boolean;
@@ -1305,7 +1307,7 @@ export default function SubmitPage() {
 
                       if (colorGovMode === 'approved') {
                         // Mode 1: Strict Approved (Allowlist)
-                        if (isApproved || isExplicitApproved) {
+                        if (isApproved || isExplicitApproved || (!isProhibited && !isOffBrand && !isNeutral)) {
                           badgeText = 'Approved Brand';
                           badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
                         } else if (isNeutral) {
@@ -1318,7 +1320,7 @@ export default function SubmitPage() {
                       } else if (colorGovMode === 'prohibited') {
                         // Mode 2: Strict Prohibited (Blocklist)
                         if (isProhibited) {
-                          badgeText = 'Prohibited Color';
+                          badgeText = flaggedProhibited?.rule_citation?.includes('Spectrum') ? 'Prohibited Shade' : 'Prohibited Color';
                           badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200';
                         } else {
                           badgeText = 'Approved Brand';
@@ -1327,7 +1329,7 @@ export default function SubmitPage() {
                       } else {
                         // Mode 3: Preferred & Not Preferred (Tiered)
                         if (isProhibited) {
-                          badgeText = 'Prohibited Color';
+                          badgeText = flaggedProhibited?.rule_citation?.includes('Spectrum') ? 'Prohibited Shade' : 'Prohibited Color';
                           badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200';
                         } else if (isApproved || isExplicitApproved) {
                           badgeText = 'Preferred Brand';
