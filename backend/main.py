@@ -3,7 +3,7 @@ VeriBrand Backend API - FastAPI Server
 Team KR8 - CodeZen India 2026 Round 2
 """
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -65,6 +65,19 @@ async def startup_event():
             print(f"✅ Renamed {rows_updated} legacy demo guideline(s) to 'Demo Brand Guideline (Sample).txt'")
     except Exception as e:
         print(f"⚠️ Demo guideline rename migration failed: {e}")
+
+    # Normalize legacy/existing submission statuses in DB
+    try:
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE submissions SET status = 'rejected' WHERE status IN ('reject', 'REJECT')")
+        cursor.execute("UPDATE submissions SET status = 'approved' WHERE status IN ('approve', 'APPROVE')")
+        cursor.execute("UPDATE submissions SET status = 'pending' WHERE status IN ('draft', 'DRAFT') OR status IS NULL")
+        conn.commit()
+        conn.close()
+        print("✅ Normalized submission statuses in database")
+    except Exception as e:
+        print(f"⚠️ Submission status normalization failed: {e}")
 
 
 # ==================== Request/Response Models ====================
@@ -759,8 +772,9 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
 
 
 @app.get("/api/submissions")
-async def get_submissions():
+async def get_submissions(response: Response):
     """Return all submissions with status, trust_score, creator_name, total_flags"""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return db.get_all_submissions()
 
 

@@ -569,9 +569,10 @@ export default function Home() {
                 </tr>
               ) : (
                 recentSubmissions.map((sub) => {
-                  const isApproved = sub.status === 'approved';
-                  const isRejected = sub.status === 'rejected';
-                  const isNeedsChanges = sub.status === 'request_changes';
+                  const sLower = sub.status?.toLowerCase()?.trim();
+                  const isApproved = sLower === 'approved' || sLower === 'approve';
+                  const isRejected = sLower === 'rejected' || sLower === 'reject';
+                  const isNeedsChanges = sLower === 'request_changes' || sLower === 'needs_changes';
                   const scoreColor =
                     sub.trust_score >= 90
                       ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
@@ -609,7 +610,7 @@ export default function Home() {
                               : 'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}
                         >
-                          {sub.status.replace('_', ' ')}
+                          {isApproved ? 'Approved' : isRejected ? 'Rejected' : isNeedsChanges ? 'Needs Changes' : 'Pending'}
                         </span>
                       </td>
                       <td className="py-3 px-6 text-right">

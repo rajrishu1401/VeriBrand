@@ -69,7 +69,8 @@ interface ReviewData {
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
-  if (status === 'approved') {
+  const s = status?.toLowerCase()?.trim();
+  if (s === 'approved' || s === 'approve') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -77,7 +78,7 @@ function StatusBadge({ status }: { status: string }) {
       </span>
     );
   }
-  if (status === 'rejected') {
+  if (s === 'rejected' || s === 'reject') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
         <XCircle className="w-3 h-3 text-rose-600" />
@@ -85,7 +86,7 @@ function StatusBadge({ status }: { status: string }) {
       </span>
     );
   }
-  if (status === 'request_changes') {
+  if (s === 'request_changes' || s === 'needs_changes' || s === 'change_requested') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
         <AlertTriangle className="w-3 h-3 text-amber-600" />
@@ -177,13 +178,21 @@ const filterMap: Record<string, string | null> = {
   'Needs Changes': 'request_changes',
 };
 
+function normalizeStatus(status?: string): string {
+  const s = status?.toLowerCase()?.trim();
+  if (s === 'approved' || s === 'approve') return 'approved';
+  if (s === 'rejected' || s === 'reject') return 'rejected';
+  if (s === 'request_changes' || s === 'needs_changes' || s === 'change_requested') return 'request_changes';
+  return 'pending';
+}
+
 function QueueView() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('All');
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/submissions`)
+    fetch(`${API_BASE}/api/submissions?t=${Date.now()}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(d => {
         setSubmissions(d);
@@ -194,7 +203,7 @@ function QueueView() {
 
   const filtered = submissions.filter(s => {
     const f = filterMap[activeFilter];
-    return f === null || s.status === f;
+    return f === null || normalizeStatus(s.status) === f;
   });
 
   if (loading) {
@@ -215,7 +224,7 @@ function QueueView() {
             const count =
               f === 'All'
                 ? submissions.length
-                : submissions.filter(s => s.status === filterMap[f]).length;
+                : submissions.filter(s => normalizeStatus(s.status) === filterMap[f]).length;
             const isActive = activeFilter === f;
 
             return (
@@ -334,7 +343,7 @@ function QueueView() {
 // ─── Individual Review Detail ───────────────────────────────────────────────
 const DECISION_OPTIONS = [
   {
-    value: 'approve',
+    value: 'approved',
     label: 'Approve Content',
     desc: 'Meets enterprise brand guidelines without blocking policy flags.',
     icon: CheckCircle2,
@@ -350,7 +359,7 @@ const DECISION_OPTIONS = [
     inactive: 'border-slate-200 text-slate-800 hover:border-amber-300 hover:bg-amber-50/30',
   },
   {
-    value: 'reject',
+    value: 'rejected',
     label: 'Reject Submission',
     desc: 'Severe brand non-compliance, prohibited colors, or deceptive claims.',
     icon: XCircle,

@@ -119,14 +119,14 @@ class Database:
         return dict(row)
     
     def store_submission(self, content: str, content_type: str, creator_name: str) -> str:
-        """Store content submission"""
+        """Store content submission with initial pending status"""
         submission_id = str(uuid.uuid4())
         
         conn = self.get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
-            "INSERT INTO submissions (id, content, content_type, creator_name) VALUES (?, ?, ?, ?)",
+            "INSERT INTO submissions (id, content, content_type, creator_name, status) VALUES (?, ?, ?, ?, 'pending')",
             (submission_id, content, content_type, creator_name)
         )
         
@@ -209,13 +209,23 @@ class Database:
         }
     
     def update_submission_status(self, submission_id: str, action: str, comment: Optional[str] = None) -> bool:
-        """Update submission status (approve/reject/request_changes)"""
+        """Update submission status (approved/rejected/request_changes)"""
+        action_clean = (action or "").lower().strip()
+        if action_clean in ("reject", "rejected"):
+            norm_status = "rejected"
+        elif action_clean in ("approve", "approved"):
+            norm_status = "approved"
+        elif action_clean in ("request_changes", "needs_changes", "change_requested"):
+            norm_status = "request_changes"
+        else:
+            norm_status = action_clean or "pending"
+
         conn = self.get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
             "UPDATE submissions SET status = ?, reviewer_comment = ? WHERE id = ?",
-            (action, comment, submission_id)
+            (norm_status, comment, submission_id)
         )
         
         affected = cursor.rowcount
