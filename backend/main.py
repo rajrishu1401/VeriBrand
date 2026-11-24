@@ -6,7 +6,7 @@ Team KR8 - CodeZen India 2026 Round 2
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uvicorn
 import os
 import re
@@ -216,6 +216,8 @@ class VisualAuditResponse(BaseModel):
     total_issues: int
     guideline_id: Optional[str] = None
     guideline_name: Optional[str] = None
+
+VisualAuditResponse.model_rebuild()
 
 
 # ==================== API Endpoints ====================
