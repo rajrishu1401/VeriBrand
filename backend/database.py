@@ -77,6 +77,16 @@ class Database:
             cursor.execute("ALTER TABLE submissions ADD COLUMN rewritten_content TEXT")
         except Exception:
             pass
+
+        try:
+            cursor.execute("ALTER TABLE submissions ADD COLUMN guideline_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE submissions ADD COLUMN guideline_name TEXT")
+        except Exception:
+            pass
         
         conn.commit()
         conn.close()
@@ -118,16 +128,16 @@ class Database:
             return None
         return dict(row)
     
-    def store_submission(self, content: str, content_type: str, creator_name: str) -> str:
-        """Store content submission with initial pending status"""
+    def store_submission(self, content: str, content_type: str, creator_name: str, guideline_id: Optional[str] = None, guideline_name: Optional[str] = None) -> str:
+        """Store content submission with initial pending status and guideline tracking"""
         submission_id = str(uuid.uuid4())
         
         conn = self.get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
-            "INSERT INTO submissions (id, content, content_type, creator_name, status) VALUES (?, ?, ?, ?, 'pending')",
-            (submission_id, content, content_type, creator_name)
+            "INSERT INTO submissions (id, content, content_type, creator_name, status, guideline_id, guideline_name) VALUES (?, ?, ?, ?, 'pending', ?, ?)",
+            (submission_id, content, content_type, creator_name, guideline_id, guideline_name)
         )
         
         conn.commit()
@@ -194,6 +204,30 @@ class Database:
         except Exception:
             rewritten = None
 
+        guideline_name = None
+        try:
+            guideline_name = submission["guideline_name"]
+        except Exception:
+            pass
+
+        guideline_id = None
+        try:
+            guideline_id = submission["guideline_id"]
+        except Exception:
+            pass
+
+        if not guideline_name and guideline_id:
+            try:
+                cursor.execute("SELECT filename FROM guidelines WHERE id = ?", (guideline_id,))
+                grow = cursor.fetchone()
+                if grow:
+                    guideline_name = grow["filename"]
+            except Exception:
+                pass
+
+        if not guideline_name:
+            guideline_name = "Demo Brand Guideline (Sample).txt"
+
         return {
             "id": submission["id"],
             "content": submission["content"],
@@ -204,6 +238,8 @@ class Database:
             "submitted_at": submission["submitted_at"],
             "reviewer_comment": submission["reviewer_comment"],
             "rewritten_content": rewritten,
+            "guideline_id": guideline_id,
+            "guideline_name": guideline_name,
             "flags": [dict(flag) for flag in flags],
             "total_issues": len(flags)
         }
@@ -244,15 +280,18 @@ class Database:
         return [dict(row) for row in rows]
 
     def get_all_submissions(self) -> List[Dict]:
-        """Get all submissions with status, trust_score, submitted_at, creator_name, total_flags"""
+        """Get all submissions with status, trust_score, submitted_at, creator_name, total_flags, guideline_name"""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute("""
             SELECT s.id, s.creator_name, s.content_type, s.status, s.trust_score,
                    s.submitted_at, s.reviewer_comment,
+                   COALESCE(s.guideline_name, g.filename, 'Demo Brand Guideline (Sample).txt') as guideline_name,
+                   s.guideline_id,
                    SUBSTR(s.content, 1, 120) as content_snippet,
                    COUNT(af.id) as total_flags
             FROM submissions s
+            LEFT JOIN guidelines g ON g.id = s.guideline_id
             LEFT JOIN audit_flags af ON af.submission_id = s.id
             GROUP BY s.id
             ORDER BY s.submitted_at DESC

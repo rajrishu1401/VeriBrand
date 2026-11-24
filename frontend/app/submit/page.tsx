@@ -46,6 +46,8 @@ interface AuditResponse {
   flags: AuditFlag[];
   total_issues: number;
   rewritten_content?: string;
+  guideline_name?: string;
+  guideline_id?: string;
 }
 
 interface ColorItem {
@@ -73,6 +75,8 @@ interface VisualAuditResponse {
   brand_trust_score: number;
   flags: AuditFlag[];
   total_issues: number;
+  guideline_name?: string;
+  guideline_id?: string;
 }
 
 interface Guideline {

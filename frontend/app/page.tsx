@@ -71,6 +71,7 @@ interface RecentSubmission {
   submitted_at: string;
   content_snippet: string;
   total_flags: number;
+  guideline_name?: string;
 }
 
 function SkeletonBlock({ className }: { className?: string }) {
@@ -583,7 +584,12 @@ export default function Home() {
                   return (
                     <tr key={sub.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-6 font-medium text-slate-900 max-w-xs truncate font-mono text-[11px]">
-                        {sub.content_snippet || 'Creative asset draft'}
+                        <div>{sub.content_snippet || 'Creative asset draft'}</div>
+                        {sub.guideline_name && (
+                          <div className="text-[10px] text-indigo-600 font-sans font-medium mt-0.5 truncate">
+                            Policy: {sub.guideline_name}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">

@@ -73,9 +73,10 @@ async def startup_event():
         cursor.execute("UPDATE submissions SET status = 'rejected' WHERE status IN ('reject', 'REJECT')")
         cursor.execute("UPDATE submissions SET status = 'approved' WHERE status IN ('approve', 'APPROVE')")
         cursor.execute("UPDATE submissions SET status = 'pending' WHERE status IN ('draft', 'DRAFT') OR status IS NULL")
+        cursor.execute("UPDATE submissions SET guideline_name = 'Demo Brand Guideline (Sample).txt' WHERE guideline_name IS NULL")
         conn.commit()
         conn.close()
-        print("✅ Normalized submission statuses in database")
+        print("✅ Normalized submission statuses and guideline references in database")
     except Exception as e:
         print(f"⚠️ Submission status normalization failed: {e}")
 
@@ -140,6 +141,8 @@ class AuditResponse(BaseModel):
     flags: List[AuditFlag]
     total_issues: int
     rewritten_content: Optional[str] = None
+    guideline_id: Optional[str] = None
+    guideline_name: Optional[str] = None
 
 
 class RewriteRequest(BaseModel):
@@ -184,6 +187,8 @@ class VisualAuditResponse(BaseModel):
     brand_trust_score: int
     flags: List[AuditFlag]
     total_issues: int
+    guideline_id: Optional[str] = None
+    guideline_name: Optional[str] = None
 
 
 # ==================== API Endpoints ====================
@@ -303,23 +308,33 @@ async def submit_content(submission: ContentSubmission):
     Returns flagged issues with citations and suggestions
     """
     try:
-        # Store submission
+        # Retrieve guideline text and metadata if available
+        guideline_text = None
+        target_gid = submission.guideline_id
+        if target_gid == "default" or not target_gid:
+            target_gid = db.get_latest_guideline_id()
+
+        guideline_filename = None
+        if target_gid:
+            g = db.get_guideline(target_gid)
+            if g:
+                guideline_filename = g.get("filename")
+                if g.get("content"):
+                    try:
+                        guideline_text = g["content"].decode("utf-8", errors="ignore")
+                    except Exception:
+                        pass
+        if not guideline_filename:
+            guideline_filename = "Demo Brand Guideline (Sample).txt"
+
+        # Store submission with guideline tracking
         submission_id = db.store_submission(
             submission.content,
             submission.content_type,
-            submission.creator_name
+            submission.creator_name,
+            guideline_id=target_gid,
+            guideline_name=guideline_filename
         )
-        
-        # Retrieve guideline text if available
-        guideline_text = None
-        target_gid = submission.guideline_id or db.get_latest_guideline_id()
-        if target_gid:
-            g = db.get_guideline(target_gid)
-            if g and g.get("content"):
-                try:
-                    guideline_text = g["content"].decode("utf-8", errors="ignore")
-                except Exception:
-                    pass
 
         # Run deterministic checks strictly scoped to guideline
         deterministic_flags = deterministic_engine.check(
@@ -367,7 +382,9 @@ async def submit_content(submission: ContentSubmission):
             brand_trust_score=trust_score,
             flags=[AuditFlag(**flag) for flag in all_flags],
             total_issues=len(all_flags),
-            rewritten_content=rewritten_content
+            rewritten_content=rewritten_content,
+            guideline_id=target_gid,
+            guideline_name=guideline_filename
         )
         
     except Exception as e:
@@ -438,14 +455,22 @@ async def audit_image_endpoint(
         
         # Retrieve guideline text if available
         guideline_text = None
-        target_gid = guideline_id or db.get_latest_guideline_id()
+        target_gid = guideline_id
+        if target_gid == "default" or not target_gid:
+            target_gid = db.get_latest_guideline_id()
+
+        guideline_filename = None
         if target_gid:
             g = db.get_guideline(target_gid)
-            if g and g.get("content"):
-                try:
-                    guideline_text = g["content"].decode("utf-8", errors="ignore")
-                except Exception:
-                    pass
+            if g:
+                guideline_filename = g.get("filename")
+                if g.get("content"):
+                    try:
+                        guideline_text = g["content"].decode("utf-8", errors="ignore")
+                    except Exception:
+                        pass
+        if not guideline_filename:
+            guideline_filename = "Demo Brand Guideline (Sample).txt"
         
         # Run visual audit engine strictly scoped to guideline
         result = visual_engine.audit_image(
@@ -459,7 +484,9 @@ async def audit_image_endpoint(
         submission_id = db.store_submission(
             f"Visual Asset: {filename} ({result['image_dimensions']})",
             content_type="image",
-            creator_name=creator_name
+            creator_name=creator_name,
+            guideline_id=target_gid,
+            guideline_name=guideline_filename
         )
         
         db.store_audit_results(
@@ -479,7 +506,9 @@ async def audit_image_endpoint(
             logo_assessment=result.get("logo_assessment", "Not analyzed"),
             brand_trust_score=result["brand_trust_score"],
             flags=[AuditFlag(**f) for f in result["flags"]],
-            total_issues=result["total_issues"]
+            total_issues=result["total_issues"],
+            guideline_id=target_gid,
+            guideline_name=guideline_filename
         )
     except Exception as e:
         import traceback

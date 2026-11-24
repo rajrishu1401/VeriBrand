@@ -48,6 +48,8 @@ interface Submission {
   trust_score: number;
   submitted_at: string;
   total_flags: number;
+  guideline_name?: string;
+  guideline_id?: string;
 }
 
 interface ReviewData {
@@ -65,6 +67,8 @@ interface ReviewData {
   status?: string;
   reviewer_comment?: string;
   rewritten_content?: string;
+  guideline_name?: string;
+  guideline_id?: string;
 }
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
@@ -298,9 +302,15 @@ function QueueView() {
                       </div>
                     </td>
                     <td className="px-5 py-4 max-w-xs sm:max-w-md">
-                      <p className="text-slate-600 truncate font-mono text-[11px]">
+                      <p className="text-slate-700 truncate font-mono text-[11px] font-medium">
                         {s.content_snippet}
                       </p>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded border border-indigo-200/70 max-w-xs truncate">
+                          <FileText className="w-2.5 h-2.5 shrink-0 text-indigo-600" />
+                          <span className="truncate">{s.guideline_name || 'Demo Brand Guideline (Sample).txt'}</span>
+                        </span>
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-center">
                       <TrustBadge score={s.trust_score ?? 0} />
@@ -522,6 +532,36 @@ function IndividualReview({ submissionId }: { submissionId: string }) {
       <div className="grid lg:grid-cols-12 gap-8 items-start">
         {/* Main Column — 8 cols */}
         <div className="lg:col-span-8 space-y-6">
+          {/* Governing Policy Specification Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Governing Brand Guideline
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/70 font-mono">
+                    Enforced Rulebase
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-slate-900 font-mono truncate mt-0.5">
+                  {data.guideline_name || 'Demo Brand Guideline (Sample).txt'}
+                </h4>
+              </div>
+            </div>
+
+            <Link
+              href="/guidelines"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shrink-0"
+            >
+              <span>Inspect Policy Rules</span>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+            </Link>
+          </div>
+
           {/* Trust Score Header Card */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
