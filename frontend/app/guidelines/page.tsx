@@ -186,7 +186,7 @@ function parseGuidelineTextClient(text: string): ExtractedRule[] {
 }
 
 // ─── Standard Enterprise Governance Dimensions ─────────────────────────────
-export const STANDARD_SYMBOLS = [
+const STANDARD_SYMBOLS = [
   { symbol: '!', label: 'Exclamation (!)', desc: 'Prevents shouty, over-hyped marketing claims' },
   { symbol: '?', label: 'Question (?)', desc: 'Bans rhetorical or uncertain interrogative copy' },
   { symbol: '%', label: 'Percent (%)', desc: 'Restricts statistical/absolute percentage claims' },
@@ -197,7 +197,7 @@ export const STANDARD_SYMBOLS = [
   { symbol: 'Emoji', label: 'Emojis', desc: 'Maintains formal corporate communication standards' },
 ];
 
-export const STANDARD_PREFERRED_TONES = [
+const STANDARD_PREFERRED_TONES = [
   'Professional & Authoritative',
   'Objective & Data-Backed',
   'Empathetic & Customer-Centric',
@@ -206,7 +206,7 @@ export const STANDARD_PREFERRED_TONES = [
   'Calm & Direct',
 ];
 
-export const STANDARD_PROHIBITED_TONES = [
+const STANDARD_PROHIBITED_TONES = [
   'Aggressive / High-Pressure',
   'Uncertain / Questioning',
   'Casual / Slang',
@@ -216,11 +216,11 @@ export const STANDARD_PROHIBITED_TONES = [
   'Unsubstantiated / Superlative',
 ];
 
-export const SUGGESTED_BANNED_WORDS = [
+const SUGGESTED_BANNED_WORDS = [
   '100%', 'guarantee', 'guaranteed', 'risk-free', 'miracle', 'best in the world', 'cheapest', 'unlimited'
 ];
 
-export interface ColorRangeItem {
+interface ColorRangeItem {
   id: string;
   name: string;
   family: string;
@@ -230,7 +230,7 @@ export interface ColorRangeItem {
   gradient: string;
 }
 
-export const STANDARD_SHADE_RANGES: ColorRangeItem[] = [
+const STANDARD_SHADE_RANGES: ColorRangeItem[] = [
   {
     id: 'blue',
     name: 'All Blue Shades',
@@ -1480,14 +1480,13 @@ export default function GuidelinesDirectoryPage() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => handleOpenBuilder()}
+          <Link
+            href="/guidelines/builder"
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-all shadow-2xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
             <span>Create / Version Policy</span>
-          </button>
+          </Link>
 
           <Link
             href="/upload"
@@ -1632,14 +1631,13 @@ export default function GuidelinesDirectoryPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenBuilder(selectedDetail)}
+                    <Link
+                      href={`/guidelines/builder?id=${selectedDetail.id}`}
                       className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-colors shadow-2xs"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
                       <span>Edit &amp; Version</span>
-                    </button>
+                    </Link>
 
                     <Link
                       href={`/submit?guideline=${selectedDetail.id}`}
@@ -2148,187 +2146,6 @@ export default function GuidelinesDirectoryPage() {
                                 Add
                               </button>
                             </div>
-                          </div>
-
-                          {/* 2. Whole Shade Spectrums / Color Ranges */}
-                          <div className="pt-3 border-t border-slate-200/80 space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
-                                <Layers className="w-3 h-3 text-emerald-600" />
-                                <span>Whole Shade Spectrums (Entire Color Families)</span>
-                              </div>
-                              <span className="text-[10px] text-slate-400 font-mono">{approvedRanges.length} active</span>
-                            </div>
-
-                            {/* Active Approved Ranges */}
-                            <div className="flex flex-wrap gap-2 min-h-[36px] items-center">
-                              {approvedRanges.length === 0 ? (
-                                <p className="text-[11px] text-slate-400 italic">
-                                  No shade spectrum selected. Choose a whole color family below to approve all its shades.
-                                </p>
-                              ) : (
-                                approvedRanges.map((range) => (
-                                  <div
-                                    key={range.id}
-                                    className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-xs text-emerald-950 shadow-2xs"
-                                  >
-                                    <span
-                                      className="w-5 h-3.5 rounded-md shrink-0 shadow-2xs border border-black/10"
-                                      style={{ background: range.gradient }}
-                                    />
-                                    <span className="font-bold">{range.name}</span>
-                                    <span className="font-mono text-[10px] text-emerald-700">Hue {range.hueMin}°–{range.hueMax}°</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeApprovedRange(range.id)}
-                                      className="text-emerald-500 hover:text-rose-600 transition-colors ml-1"
-                                      title="Remove spectrum"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-
-                            {/* Quick-Add Spectrum Chips */}
-                            <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100 space-y-2">
-                              <div className="text-[10px] font-semibold text-emerald-900">
-                                Quick-Add Spectrum Range (Approve Entire Shade Family):
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {STANDARD_SHADE_RANGES.map((std) => {
-                                  const isSelected = approvedRanges.some(r => r.id === std.id);
-                                  return (
-                                    <button
-                                      key={std.id}
-                                      type="button"
-                                      onClick={() => isSelected ? removeApprovedRange(std.id) : addApprovedRange(std)}
-                                      className={`px-2 py-1 rounded-lg text-[10px] font-medium border flex items-center gap-1.5 transition-all ${
-                                        isSelected
-                                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
-                                          : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'
-                                      }`}
-                                    >
-                                      <span className="w-3 h-2 rounded-sm shrink-0" style={{ background: std.gradient }} />
-                                      <span>{std.name}</span>
-                                      {isSelected && <Check className="w-2.5 h-2.5 ml-0.5" />}
-                                    </button>
-                                  );
-                                })}
-                                <button
-                                  type="button"
-                                  onClick={() => setCustomRangeTarget(customRangeTarget === 'approved' ? null : 'approved')}
-                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${
-                                    customRangeTarget === 'approved'
-                                      ? 'bg-indigo-600 text-white border-indigo-700'
-                                      : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
-                                  }`}
-                                >
-                                  <Sliders className="w-2.5 h-2.5" />
-                                  <span>+ Custom Spectrum...</span>
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Custom Spectrum Builder (Approved) */}
-                            {customRangeTarget === 'approved' && (
-                              <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-3 mt-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                                    <Sliders className="w-3.5 h-3.5 text-indigo-600" />
-                                    <span>Build Custom Shade Spectrum (Approved)</span>
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setCustomRangeTarget(null)}
-                                    className="text-slate-400 hover:text-slate-600"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                                      Center Base Color
-                                    </label>
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="color"
-                                        value={customRangeBase}
-                                        onChange={e => setCustomRangeBase(e.target.value)}
-                                        className="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={customRangeBase}
-                                        onChange={e => setCustomRangeBase(e.target.value)}
-                                        className="w-24 px-2 py-1 text-xs font-mono border border-slate-200 rounded-lg bg-white"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <label className="text-[10px] font-bold text-slate-600 uppercase">
-                                        Hue Spectrum Tolerance
-                                      </label>
-                                      <span className="text-[10px] font-mono font-bold text-indigo-600">
-                                        ±{customRangeTolerance}° (Total {customRangeTolerance * 2}°)
-                                      </span>
-                                    </div>
-                                    <input
-                                      type="range"
-                                      min={10}
-                                      max={50}
-                                      step={5}
-                                      value={customRangeTolerance}
-                                      onChange={e => setCustomRangeTolerance(Number(e.target.value))}
-                                      className="w-full accent-indigo-600 cursor-pointer"
-                                    />
-                                    <div className="flex justify-between text-[9px] text-slate-400 font-mono">
-                                      <span>Narrow (±10°)</span>
-                                      <span>Wide (±50°)</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Dynamic Gradient Preview */}
-                                <div>
-                                  <div className="text-[10px] font-semibold text-slate-500 mb-1 flex items-center justify-between">
-                                    <span>Calculated Hue Spectrum:</span>
-                                    <span className="font-mono text-[10px] text-indigo-700">
-                                      Hue {getCustomSpectrumPreview().hueMin}° – {getCustomSpectrumPreview().hueMax}°
-                                    </span>
-                                  </div>
-                                  <div
-                                    className="h-7 w-full rounded-lg border border-black/10 shadow-inner flex items-center justify-center text-[10px] font-bold text-white drop-shadow"
-                                    style={{ background: getCustomSpectrumPreview().gradient }}
-                                  >
-                                    Spectrum Preview
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 pt-1">
-                                  <input
-                                    type="text"
-                                    value={customRangeName}
-                                    onChange={e => setCustomRangeName(e.target.value)}
-                                    placeholder="Spectrum Name (e.g. Cobalt to Royal Blue)"
-                                    className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => addCustomRange('approved')}
-                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                    <span>Add Spectrum</span>
-                                  </button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}
