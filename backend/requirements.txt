@@ -23,3 +23,8 @@ python-dotenv
 
 # Utilities
 python-dateutil
+
+# Testing
+pytest
+httpx
+
