@@ -395,17 +395,23 @@ export default function GuidelinesDirectoryPage() {
   const [prohibitedSymbols, setProhibitedSymbols] = useState<string[]>([]);
   const [customSymbolInput, setCustomSymbolInput] = useState('');
 
-  // 3. Company, Competitor & Entity Governance
-  const [prohibitCompetitorMentions, setProhibitCompetitorMentions] = useState(false);
-  const [blockedCompetitors, setBlockedCompetitors] = useState('');
-  const [prohibitPersonNames, setProhibitPersonNames] = useState(false);
-  const [whitelistedEntities, setWhitelistedEntities] = useState('');
+  // 3. Company & Brand Governance (Approved Partners vs Prohibited Competitors)
+  const [approvedCompanies, setApprovedCompanies] = useState<string[]>([]);
+  const [newApprovedCompany, setNewApprovedCompany] = useState('');
+  const [prohibitedCompanies, setProhibitedCompanies] = useState<string[]>([]);
+  const [newProhibitedCompany, setNewProhibitedCompany] = useState('');
 
-  // 4. Prohibited Vocabulary & Banned Words
+  // 4. Person & Entity Governance (Approved Spokespersons vs Prohibited Names)
+  const [approvedPersons, setApprovedPersons] = useState<string[]>([]);
+  const [newApprovedPerson, setNewApprovedPerson] = useState('');
+  const [prohibitedPersons, setProhibitedPersons] = useState<string[]>([]);
+  const [newProhibitedPerson, setNewProhibitedPerson] = useState('');
+
+  // 5. Prohibited Vocabulary & Banned Words
   const [bannedWords, setBannedWords] = useState<string[]>([]);
   const [newWord, setNewWord] = useState('');
 
-  // 5. Legal Disclaimers & Absolute Claims
+  // 6. Legal Disclaimers & Absolute Claims
   const [requireTermsDisclaimer, setRequireTermsDisclaimer] = useState(false);
   const [prohibitGuarantees, setProhibitGuarantees] = useState(false);
 
@@ -437,6 +443,50 @@ export default function GuidelinesDirectoryPage() {
       setProhibitedSymbols(prev => [...prev, sym]);
       setCustomSymbolInput('');
     }
+  };
+
+  const addApprovedCompany = () => {
+    const c = newApprovedCompany.trim();
+    if (c && !approvedCompanies.includes(c)) {
+      setApprovedCompanies(prev => [...prev, c]);
+      setNewApprovedCompany('');
+    }
+  };
+  const removeApprovedCompany = (item: string) => {
+    setApprovedCompanies(prev => prev.filter(c => c !== item));
+  };
+
+  const addProhibitedCompany = () => {
+    const c = newProhibitedCompany.trim();
+    if (c && !prohibitedCompanies.includes(c)) {
+      setProhibitedCompanies(prev => [...prev, c]);
+      setNewProhibitedCompany('');
+    }
+  };
+  const removeProhibitedCompany = (item: string) => {
+    setProhibitedCompanies(prev => prev.filter(c => c !== item));
+  };
+
+  const addApprovedPerson = () => {
+    const p = newApprovedPerson.trim();
+    if (p && !approvedPersons.includes(p)) {
+      setApprovedPersons(prev => [...prev, p]);
+      setNewApprovedPerson('');
+    }
+  };
+  const removeApprovedPerson = (item: string) => {
+    setApprovedPersons(prev => prev.filter(p => p !== item));
+  };
+
+  const addProhibitedPerson = () => {
+    const p = newProhibitedPerson.trim();
+    if (p && !prohibitedPersons.includes(p)) {
+      setProhibitedPersons(prev => [...prev, p]);
+      setNewProhibitedPerson('');
+    }
+  };
+  const removeProhibitedPerson = (item: string) => {
+    setProhibitedPersons(prev => prev.filter(p => p !== item));
   };
 
   // 1. Fetch guideline list
@@ -589,19 +639,27 @@ export default function GuidelinesDirectoryPage() {
       ruleNum++;
     }
 
-    // 4. Company, Competitor & Entity Governance
-    if (prohibitCompetitorMentions) {
-      const compText = blockedCompetitors.trim() ? ` (including ${blockedCompetitors.trim()})` : '';
-      rulesList.push(`${ruleNum}. Company & Competitor Mentions: Direct mentions of other companies or competitor brands${compText} are strictly prohibited.`);
+    // 4. Company & Brand Governance
+    if (approvedCompanies.length > 0) {
+      rulesList.push(`${ruleNum}. Approved Brand Partners & Collaborations: Marketing copy may reference authorized partners: ${approvedCompanies.join(', ')}.`);
       ruleNum++;
     }
-    if (prohibitPersonNames) {
-      const whitelistText = whitelistedEntities.trim() ? `, except verified brand spokespersons: ${whitelistedEntities.trim()}` : '';
-      rulesList.push(`${ruleNum}. Entity Governance: Names of individuals or unauthorized celebrities must not be mentioned in marketing copy${whitelistText}.`);
+    if (prohibitedCompanies.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Competitor Brands: Mentions of competitor companies: ${prohibitedCompanies.join(', ')} are strictly prohibited.`);
       ruleNum++;
     }
 
-    // 5. Legal Disclaimers & Absolute Claims
+    // 5. Person & Entity Governance
+    if (approvedPersons.length > 0) {
+      rulesList.push(`${ruleNum}. Approved Brand Spokespersons: Authorized brand ambassadors and leadership: ${approvedPersons.join(', ')}.`);
+      ruleNum++;
+    }
+    if (prohibitedPersons.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Person Names: Unauthorized person names: ${prohibitedPersons.join(', ')} must not be mentioned in marketing copy.`);
+      ruleNum++;
+    }
+
+    // 6. Legal Disclaimers & Absolute Claims
     if (prohibitGuarantees) {
       rulesList.push(`${ruleNum}. Absolute Claims: Unsubstantiated guarantees and absolute promises are strictly prohibited.`);
       ruleNum++;
@@ -611,15 +669,15 @@ export default function GuidelinesDirectoryPage() {
       ruleNum++;
     }
 
-    // 6. Visual & Color Governance
-    if (prohibitedColors.length > 0) {
-      const pNames = prohibitedColors.map(c => `${c.name} (${c.hex})`).join(', ');
-      rulesList.push(`${ruleNum}. Prohibited Colors: No ${pNames} should be used in posters or creative assets.`);
-      ruleNum++;
-    }
+    // 7. Visual & Color Governance (Prefer Approved if both exist)
     if (approvedColors.length > 0) {
       const aNames = approvedColors.map(c => `${c.name} (${c.hex})`).join(', ');
       rulesList.push(`${ruleNum}. Approved Brand Color Palette: ${aNames}.`);
+      ruleNum++;
+    }
+    if (prohibitedColors.length > 0) {
+      const pNames = prohibitedColors.map(c => `${c.name} (${c.hex})`).join(', ');
+      rulesList.push(`${ruleNum}. Prohibited Colors: No ${pNames} should be used in posters or creative assets.`);
       ruleNum++;
     }
 
@@ -807,34 +865,49 @@ export default function GuidelinesDirectoryPage() {
     }
     setPreferredTones(parsedPreferredTones);
 
-    // 5. Company, Competitor & Entity Governance
-    setProhibitCompetitorMentions(
-      textLower.includes('competitor') ||
-      textLower.includes('other company') ||
-      textLower.includes('other companies') ||
-      textLower.includes('rival')
-    );
+    // 5. Company & Brand Governance
+    const parsedApprovedCompanies: string[] = [];
+    const parsedProhibitedCompanies: string[] = [];
+
+    const partnerMatch = textClean.match(/(?:partner|collaborat\w*|sponsor\w*)[^.\n]*?(?:such as|including|namely|:|is|are)\s*([A-Za-z0-9\s,]+?)(?:[.\n]|$)/i);
+    if (partnerMatch && partnerMatch[1]) {
+      partnerMatch[1].split(',').map(s => s.trim()).filter(Boolean).forEach(c => {
+        if (!parsedApprovedCompanies.includes(c)) parsedApprovedCompanies.push(c);
+      });
+    }
 
     const compMatch = textClean.match(/(?:competitor|other company|rivals?)[^.\n]*?(?:such as|including|namely|:|is)\s*([A-Za-z0-9\s,]+?)(?:[.\n]|$)/i);
     if (compMatch && compMatch[1]) {
-      setBlockedCompetitors(compMatch[1].trim());
-    } else {
-      setBlockedCompetitors('');
+      compMatch[1].split(',').map(s => s.trim()).filter(Boolean).forEach(c => {
+        if (!parsedProhibitedCompanies.includes(c)) parsedProhibitedCompanies.push(c);
+      });
+    } else if (textLower.includes('competitor') || textLower.includes('other company') || textLower.includes('rival')) {
+      parsedProhibitedCompanies.push('Direct competitors and rival brands');
+    }
+    setApprovedCompanies(parsedApprovedCompanies);
+    setProhibitedCompanies(parsedProhibitedCompanies);
+
+    // 6. Person & Entity Governance
+    const parsedApprovedPersons: string[] = [];
+    const parsedProhibitedPersons: string[] = [];
+
+    const entityMatch = textClean.match(/(?:brand ambassador|ambassador|spokesperson|spokespersons?|endorser)[^.\n]*?(?:which is|:|is|are)\s*([A-Za-z\s,]+?)(?:[.,\n]|$)/i);
+    if (entityMatch && entityMatch[1]) {
+      entityMatch[1].split(',').map(s => s.trim()).filter(Boolean).forEach(p => {
+        if (!parsedApprovedPersons.includes(p)) parsedApprovedPersons.push(p);
+      });
     }
 
-    setProhibitPersonNames(
+    if (
       textLower.includes('name of any person') ||
       textLower.includes('person name') ||
       textLower.includes('individual name') ||
       textLower.includes('celebrity')
-    );
-
-    const entityMatch = textClean.match(/(?:brand ambassador|ambassador|spokesperson|spokespersons?|endorser)[^.\n]*?(?:which is|:|is|are)\s*([A-Za-z\s,]+?)(?:[.,\n]|$)/i);
-    if (entityMatch && entityMatch[1]) {
-      setWhitelistedEntities(entityMatch[1].trim());
-    } else {
-      setWhitelistedEntities('');
+    ) {
+      parsedProhibitedPersons.push('All unapproved individual person names');
     }
+    setApprovedPersons(parsedApprovedPersons);
+    setProhibitedPersons(parsedProhibitedPersons);
 
     // 6. Prohibited Vocabulary & Banned Words
     const extractedWords: string[] = [];
@@ -902,10 +975,10 @@ export default function GuidelinesDirectoryPage() {
       setPreferredTones(['Professional & Authoritative', 'Objective & Data-Backed']);
       setProhibitedTones([]);
       setProhibitedSymbols([]);
-      setProhibitCompetitorMentions(false);
-      setBlockedCompetitors('');
-      setProhibitPersonNames(false);
-      setWhitelistedEntities('');
+      setApprovedCompanies([]);
+      setProhibitedCompanies([]);
+      setApprovedPersons([]);
+      setProhibitedPersons([]);
       setRequireTermsDisclaimer(false);
       setProhibitGuarantees(false);
       setApprovedColors([]);
@@ -1001,21 +1074,25 @@ export default function GuidelinesDirectoryPage() {
         preferred_tones: preferredTones,
         prohibited_tones: prohibitedTones,
         prohibited_symbols: prohibitedSymbols,
-        prohibit_competitor_mentions: prohibitCompetitorMentions,
-        blocked_competitors: blockedCompetitors.split(',').map(s => s.trim()).filter(Boolean),
-        prohibit_person_names: prohibitPersonNames,
-        whitelisted_entities: whitelistedEntities.split(',').map(s => s.trim()).filter(Boolean),
+        approved_companies: approvedCompanies,
+        prohibited_companies: prohibitedCompanies,
+        approved_persons: approvedPersons,
+        prohibited_persons: prohibitedPersons,
         prohibited_words: bannedWords,
         require_terms_disclaimer: requireTermsDisclaimer,
         prohibit_guarantees: prohibitGuarantees,
         prohibited_colors: prohibitedColors.map(c => c.name),
         approved_palette: approvedColors.map(c => c.hex),
         // Legacy fields for backward compatibility
-        allowed_ambassadors: whitelistedEntities.split(',').map(s => s.trim()).filter(Boolean),
+        allowed_ambassadors: approvedPersons,
+        whitelisted_entities: approvedPersons,
+        prohibit_person_names: prohibitedPersons.length > 0,
+        blocked_competitors: prohibitedCompanies,
+        prohibit_competitor_mentions: prohibitedCompanies.length > 0,
+        prohibit_competitor_claims: prohibitedCompanies.length > 0,
         prohibit_questions: prohibitedSymbols.includes('?'),
         prohibit_exclamations: prohibitedSymbols.includes('!'),
         prohibit_100_percent: bannedWords.includes('100%') || prohibitedSymbols.includes('%'),
-        prohibit_competitor_claims: prohibitCompetitorMentions,
         raw_content: finalContent,
       };
 
@@ -1920,77 +1997,285 @@ export default function GuidelinesDirectoryPage() {
                     </div>
                   </div>
 
-                  {/* 3. Company, Competitor & Entity Governance Card */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Other Company & Competitor Mentions */}
-                    <div className="p-4 rounded-2xl bg-white border border-slate-200/80 space-y-3 shadow-2xs">
-                      <div className="flex items-center justify-between">
+                  {/* 3. Company & Brand Governance Matrix */}
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                           <Building2 className="w-4 h-4 text-indigo-600" />
-                          <span>Other Company Mentions</span>
+                          <span>Company &amp; Brand Governance Matrix</span>
                         </h4>
-                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={prohibitCompetitorMentions}
-                            onChange={e => setProhibitCompetitorMentions(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                      </div>
-
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Prohibits direct competitive benchmarking or third-party company name drops without verified citations.
-                      </p>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                          Explicitly Blocked Competitors / Brands
-                        </label>
-                        <input
-                          type="text"
-                          value={blockedCompetitors}
-                          onChange={e => setBlockedCompetitors(e.target.value)}
-                          placeholder="e.g. Acme Corp, RivalTech, Competitor X (comma-separated)"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                        />
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Define approved partners &amp; collaborations and prohibited competitor brands. When approved partners are specified, only authorized brands may be cited.
+                        </p>
                       </div>
                     </div>
 
-                    {/* Person & Spokesperson Governance */}
-                    <div className="p-4 rounded-2xl bg-white border border-slate-200/80 space-y-3 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                          <Users className="w-4 h-4 text-indigo-600" />
-                          <span>Entity &amp; Spokesperson Governance</span>
-                        </h4>
-                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      {/* Approved Brand Partners & Collaborations */}
+                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            Approved Partners &amp; Collaborations (Allowed)
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-mono font-bold">{approvedCompanies.length} approved</span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                          {approvedCompanies.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-1">No approved partners defined. All external brands default to neutral or restricted.</p>
+                          ) : (
+                            approvedCompanies.map(c => (
+                              <span
+                                key={c}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-2xs"
+                              >
+                                <Building2 className="w-3 h-3 text-emerald-600" />
+                                {c}
+                                <button
+                                  type="button"
+                                  onClick={() => removeApprovedCompany(c)}
+                                  className="text-emerald-500 hover:text-emerald-800 transition-colors ml-0.5"
+                                  title="Remove partner"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
                           <input
-                            type="checkbox"
-                            checked={prohibitPersonNames}
-                            onChange={e => setProhibitPersonNames(e.target.checked)}
-                            className="sr-only peer"
+                            type="text"
+                            value={newApprovedCompany}
+                            onChange={e => setNewApprovedCompany(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addApprovedCompany();
+                              }
+                            }}
+                            placeholder="Partner or authorized brand (e.g. Acme Corp, Nvidia)"
+                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
                           />
-                          <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
+                          <button
+                            type="button"
+                            onClick={addApprovedCompany}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add
+                          </button>
+                        </div>
                       </div>
 
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Flags individual person names or unauthorized celebrity endorsements in marketing creative copy.
-                      </p>
+                      {/* Prohibited Competitor Brands */}
+                      <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-rose-500" />
+                            Prohibited Competitor Brands (Banned)
+                          </span>
+                          <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedCompanies.length} banned</span>
+                        </div>
 
+                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                          {prohibitedCompanies.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-1">No competitor brands explicitly prohibited.</p>
+                          ) : (
+                            prohibitedCompanies.map(c => (
+                              <span
+                                key={c}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold shadow-2xs"
+                              >
+                                <Building2 className="w-3 h-3 text-rose-600" />
+                                {c}
+                                <button
+                                  type="button"
+                                  onClick={() => removeProhibitedCompany(c)}
+                                  className="text-rose-500 hover:text-rose-800 transition-colors ml-0.5"
+                                  title="Remove banned competitor"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                          <input
+                            type="text"
+                            value={newProhibitedCompany}
+                            onChange={e => setNewProhibitedCompany(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addProhibitedCompany();
+                              }
+                            }}
+                            placeholder="Competitor or brand to ban (e.g. RivalTech, Brand X)"
+                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={addProhibitedCompany}
+                            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Ban
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Entity & Spokesperson Governance Matrix */}
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4 shadow-2xs">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                          Whitelisted Entities &amp; Spokespersons
-                        </label>
-                        <input
-                          type="text"
-                          value={whitelistedEntities}
-                          onChange={e => setWhitelistedEntities(e.target.value)}
-                          placeholder="e.g. Hritik Roshan, CEO Name (exempt from person ban)"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                        />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                          <Users className="w-4 h-4 text-indigo-600" />
+                          <span>Entity &amp; Spokesperson Governance Matrix</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Define approved brand ambassadors or leadership names, and ban unauthorized person name drops.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      {/* Approved Brand Ambassadors & Leadership */}
+                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            Approved Brand Ambassadors (Allowed)
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-mono font-bold">{approvedPersons.length} approved</span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                          {approvedPersons.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-1">No approved ambassadors defined.</p>
+                          ) : (
+                            approvedPersons.map(p => (
+                              <span
+                                key={p}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-2xs"
+                              >
+                                <Users className="w-3 h-3 text-emerald-600" />
+                                {p}
+                                <button
+                                  type="button"
+                                  onClick={() => removeApprovedPerson(p)}
+                                  className="text-emerald-500 hover:text-emerald-800 transition-colors ml-0.5"
+                                  title="Remove ambassador"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                          <input
+                            type="text"
+                            value={newApprovedPerson}
+                            onChange={e => setNewApprovedPerson(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addApprovedPerson();
+                              }
+                            }}
+                            placeholder="Approved spokesperson (e.g. Hritik Roshan, CEO Name)"
+                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={addApprovedPerson}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Prohibited Person Names */}
+                      <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-rose-500" />
+                            Prohibited Person Names (Banned)
+                          </span>
+                          <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedPersons.length} banned</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {!prohibitedPersons.includes('All unapproved individual person names') && (
+                            <button
+                              type="button"
+                              onClick={() => setProhibitedPersons(prev => [...prev, 'All unapproved individual person names'])}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors inline-flex items-center gap-0.5"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                              + Ban All Unapproved Names
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                          {prohibitedPersons.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic py-1">No individual person names banned.</p>
+                          ) : (
+                            prohibitedPersons.map(p => (
+                              <span
+                                key={p}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold shadow-2xs"
+                              >
+                                <Users className="w-3 h-3 text-rose-600" />
+                                {p}
+                                <button
+                                  type="button"
+                                  onClick={() => removeProhibitedPerson(p)}
+                                  className="text-rose-500 hover:text-rose-800 transition-colors ml-0.5"
+                                  title="Remove banned person"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                          <input
+                            type="text"
+                            value={newProhibitedPerson}
+                            onChange={e => setNewProhibitedPerson(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addProhibitedPerson();
+                              }
+                            }}
+                            placeholder="Person name to ban (or 'All unapproved names')"
+                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={addProhibitedPerson}
+                            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Ban
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

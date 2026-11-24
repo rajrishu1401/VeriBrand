@@ -112,19 +112,24 @@ class GuidelineCreateRequest(BaseModel):
     version: str = "1.0"
     description: Optional[str] = None
     include_standard_rules: bool = True
-    prohibited_symbols: List[str] = []
+    # Standard Symmetrical Approved vs Prohibited Fields
+    approved_palette: List[str] = []
+    prohibited_colors: List[str] = []
+    approved_companies: List[str] = []
+    prohibited_companies: List[str] = []
+    approved_persons: List[str] = []
+    prohibited_persons: List[str] = []
     preferred_tones: List[str] = []
     prohibited_tones: List[str] = []
+    prohibited_symbols: List[str] = []
+    prohibited_words: List[str] = []
+    require_terms_disclaimer: bool = False
+    prohibit_guarantees: bool = False
+    # Legacy backward-compatibility fields
     prohibit_competitor_mentions: bool = False
     blocked_competitors: List[str] = []
     prohibit_person_names: bool = False
     whitelisted_entities: List[str] = []
-    prohibited_words: List[str] = []
-    require_terms_disclaimer: bool = False
-    prohibit_guarantees: bool = False
-    prohibited_colors: List[str] = []
-    approved_palette: List[str] = []
-    # Legacy backward-compatibility fields
     allowed_ambassadors: List[str] = []
     prohibit_exclamations: bool = False
     prohibit_questions: bool = False
@@ -759,16 +764,27 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
                     rules_text_list.append(f"{rule_num}. Prohibited term: '{w.strip()}' must not appear in marketing claims.")
                     rule_num += 1
 
-            # Company, Competitor & Entity Mentions
-            if req.prohibit_competitor_mentions or req.prohibit_competitor_claims:
-                comp_str = f" (including {', '.join(req.blocked_competitors)})" if req.blocked_competitors else ""
-                rules_text_list.append(f"{rule_num}. Company & Competitor Mentions: Direct mentions of other companies or competitor brands{comp_str} are strictly prohibited.")
+            # Company & Brand Governance
+            if req.approved_companies:
+                rules_text_list.append(f"{rule_num}. Approved Brand Partners & Collaborations: Marketing copy may reference authorized partners: {', '.join(req.approved_companies)}.")
                 rule_num += 1
 
-            if req.prohibit_person_names:
-                entities = req.whitelisted_entities or req.allowed_ambassadors
-                entity_str = f", except verified brand spokespersons: {', '.join(entities)}" if entities else ""
-                rules_text_list.append(f"{rule_num}. Entity Governance: Names of individuals or unauthorized celebrities must not be mentioned in marketing copy{entity_str}.")
+            comp_list = list(req.prohibited_companies) or list(req.blocked_competitors)
+            if comp_list or req.prohibit_competitor_mentions or req.prohibit_competitor_claims:
+                comp_str = f": {', '.join(comp_list)}" if comp_list else ""
+                rules_text_list.append(f"{rule_num}. Prohibited Competitor Brands: Mentions of competitor companies{comp_str} are strictly prohibited.")
+                rule_num += 1
+
+            # Person & Entity Governance
+            spokespersons = list(req.approved_persons) or list(req.whitelisted_entities) or list(req.allowed_ambassadors)
+            if spokespersons:
+                rules_text_list.append(f"{rule_num}. Approved Brand Spokespersons: Authorized brand ambassadors and leadership who can be mentioned: {', '.join(spokespersons)}.")
+                rule_num += 1
+
+            person_banned = list(req.prohibited_persons)
+            if person_banned or req.prohibit_person_names:
+                p_str = f": {', '.join(person_banned)}" if person_banned else ""
+                rules_text_list.append(f"{rule_num}. Prohibited Person Names: Unauthorized individual person names{p_str} must not be mentioned in marketing copy.")
                 rule_num += 1
 
             # Legal Disclaimers & Guarantees
@@ -780,15 +796,15 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
                 rules_text_list.append(f"{rule_num}. Legal Disclaimers: All promotional claims must include mandatory 'Terms and conditions apply' disclaimer.")
                 rule_num += 1
 
-            # Visual & Color Rules
-            if req.prohibited_colors:
-                colors_str = " and ".join(req.prohibited_colors)
-                rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
-                rule_num += 1
-
+            # Visual & Color Rules (Prefer Approved if both exist)
             if req.approved_palette:
                 palette_str = ", ".join(req.approved_palette)
                 rules_text_list.append(f"{rule_num}. Approved Brand Color Palette: {palette_str}.")
+                rule_num += 1
+
+            if req.prohibited_colors:
+                colors_str = " and ".join(req.prohibited_colors)
+                rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
                 rule_num += 1
 
             # Additional Custom Rules
