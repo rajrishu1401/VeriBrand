@@ -203,6 +203,19 @@ function AuditingAnimation({ mode }: { mode: 'text' | 'visual' }) {
   );
 }
 
+function isNeutralHex(hex: string): boolean {
+  const clean = hex.replace('#', '');
+  if (clean.length === 6) {
+    const r = parseInt(clean.substring(0, 2), 16);
+    const g = parseInt(clean.substring(2, 4), 16);
+    const b = parseInt(clean.substring(4, 6), 16);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    return (max - min) <= 18 || max <= 18 || min >= 242;
+  }
+  return false;
+}
+
 // ─── Enterprise Flag Card ───────────────────────────────────────────────────
 function FlagCard({
   flag,
@@ -1264,18 +1277,20 @@ export default function SubmitPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {visualResult.dominant_palette.map((c, i) => {
-                      const flaggedViolation = visualResult.flags.find(
-                        f => (f.issue_type === 'Prohibited Color Usage' || f.issue_type?.toLowerCase().includes('color')) &&
+                      const flaggedProhibited = visualResult.flags.find(
+                        f => f.issue_type === 'Prohibited Color Usage' &&
                              f.flagged_text?.toLowerCase().includes(c.hex.toLowerCase())
                       );
-                      const isProhibited = !!flaggedViolation;
+                      const isProhibited = !!flaggedProhibited;
                       const isOffBrand = visualResult.flags.some(
-                        f => f.issue_type === 'Off-Brand Color Palette' && f.flagged_text?.toLowerCase().includes(c.hex.toLowerCase())
+                        f => (f.issue_type === 'Off-Brand Color Palette' || f.flagged_text?.toLowerCase().includes('unapproved')) &&
+                             f.flagged_text?.toLowerCase().includes(c.hex.toLowerCase())
                       );
                       const isApproved = !isProhibited && !isOffBrand && (
-                        ['#4F46E5', '#1E1B4B', '#7C3AED', '#1E293B', '#F8FAFC'].includes(c.hex.toUpperCase()) ||
-                        visualResult.flags.filter(f => f.issue_type?.toLowerCase().includes('color')).length === 0
+                        (visualResult.flags.filter(f => f.issue_type === 'Prohibited Color Usage' || f.issue_type === 'Off-Brand Color Palette').length === 0 &&
+                         ['#4F46E5', '#1E1B4B', '#7C3AED', '#1E293B', '#F8FAFC'].includes(c.hex.toUpperCase()))
                       );
+                      const isNeutral = isNeutralHex(c.hex);
                       const isCopied = copiedHex === c.hex;
 
                       return (
@@ -1305,10 +1320,12 @@ export default function SubmitPage() {
                                   ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                   : isApproved
                                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-slate-200 text-slate-700'
+                                  : isNeutral
+                                  ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
                               }`}
                             >
-                              {isProhibited ? 'Prohibited Color' : isOffBrand ? 'Off-Brand' : isApproved ? 'Approved Brand' : 'Neutral'}
+                              {isProhibited ? 'Prohibited Color' : isOffBrand ? 'Off-Brand' : isApproved ? 'Approved Brand' : isNeutral ? 'Neutral' : 'Unapproved'}
                             </span>
                           </div>
                         </button>

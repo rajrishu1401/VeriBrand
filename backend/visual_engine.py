@@ -50,6 +50,13 @@ def hex_to_rgb(hex_str: str) -> Tuple[int, int, int]:
     return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
 
 
+def is_neutral_grayscale(rgb: Tuple[int, int, int]) -> bool:
+    """Check if color is neutral grayscale (black, white, or gray where R ~ G ~ B)"""
+    max_c = max(rgb)
+    min_c = min(rgb)
+    return (max_c - min_c) <= 20 or max_c <= 20 or min_c >= 245
+
+
 def color_distance(c1: Tuple[int, int, int], c2: Tuple[int, int, int]) -> float:
     """Euclidean distance in RGB space"""
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(c1, c2)))
@@ -234,25 +241,27 @@ class VisualBrandEngine:
                             "confidence": "high"
                         })
 
-            # 3. Check if significant color matches approved brand palette
-            # Only enforce if standard rules enabled, or guideline explicitly defines an approved palette, or no custom guideline
-            if (include_standard_rules or rules["has_approved_palette"] or not guidelines_text) and pct > 15.0:
-                palette_to_check = rules.get("approved_colors") if (rules.get("approved_colors") and len(rules["approved_colors"]) > 0) else self.approved_palette
-                closest_approved = min(
-                    palette_to_check,
-                    key=lambda a: color_distance(rgb, a["rgb"])
-                )
-                min_dist = color_distance(rgb, closest_approved["rgb"])
-                if min_dist > 85:  # Noticeably off-brand color
-                    flags.append({
-                        "issue_type": "Off-Brand Color Palette",
-                        "severity": "warning",
-                        "flagged_text": f"Unapproved Dominant Color ({hex_code})",
-                        "rule_citation": "Section 12.1: Approved Brand Color Palette",
-                        "explanation": f"Dominant color {hex_code} ({pct}% coverage) deviates from the official brand palette ({', '.join(p['hex'] for p in palette_to_check[:4])}).",
-                        "suggested_fix": f"Realign with approved brand color '{closest_approved['name']}' ({closest_approved['hex']}).",
-                        "confidence": "high"
-                    })
+            # 3. Check if color matches approved brand palette
+            # When guideline defines an approved palette, verify all dominant non-neutral colors (>= 2.0% coverage)
+            if (include_standard_rules or rules["has_approved_palette"] or not guidelines_text) and pct >= 2.0:
+                # Permitted neutral foundation colors (white canvas, black text, neutral grays) are exempt from off-brand flags
+                if not is_neutral_grayscale(rgb):
+                    palette_to_check = rules.get("approved_colors") if (rules.get("approved_colors") and len(rules["approved_colors"]) > 0) else self.approved_palette
+                    closest_approved = min(
+                        palette_to_check,
+                        key=lambda a: color_distance(rgb, a["rgb"])
+                    )
+                    min_dist = color_distance(rgb, closest_approved["rgb"])
+                    if min_dist > 85:  # Noticeably off-brand color
+                        flags.append({
+                            "issue_type": "Off-Brand Color Palette",
+                            "severity": "warning",
+                            "flagged_text": f"Unapproved Dominant Color ({hex_code})",
+                            "rule_citation": "Section 12.1: Approved Brand Color Palette",
+                            "explanation": f"Color {hex_code} ({pct}% coverage) deviates from the official approved brand palette ({', '.join(p['hex'] for p in palette_to_check[:4])}).",
+                            "suggested_fix": f"Realign with approved brand color '{closest_approved['name']}' ({closest_approved['hex']}).",
+                            "confidence": "high"
+                        })
 
         return flags
 
