@@ -234,12 +234,19 @@ function PolicyBuilderInner() {
   const [includeStandardRules, setIncludeStandardRules] = useState(false);
 
   // 1. Color Governance:
-  // Approved: SPECIFIC SWATCHES ONLY (No shade spectrum)
+  // Approved: Specific swatches AND Whole Shade Spectrums
   const [approvedColors, setApprovedColors] = useState<{ hex: string; name: string }[]>([]);
   const [newColorHex, setNewColorHex] = useState('#4F46E5');
   const [newColorName, setNewColorName] = useState('');
+  const [approvedRanges, setApprovedRanges] = useState<ColorRangeItem[]>([]);
 
-  // Prohibited: Specific swatches AND Shade Spectrums
+  // Custom Approved Range Builder
+  const [showCustomApprovedRangeBuilder, setShowCustomApprovedRangeBuilder] = useState(false);
+  const [customApprovedBase, setCustomApprovedBase] = useState('#4F46E5');
+  const [customApprovedTolerance, setCustomApprovedTolerance] = useState(25);
+  const [customApprovedName, setCustomApprovedName] = useState('');
+
+  // Prohibited: Specific swatches AND Whole Shade Spectrums
   const [prohibitedColors, setProhibitedColors] = useState<{ hex: string; name: string }[]>([]);
   const [newProhibitHex, setNewProhibitHex] = useState('#EF4444');
   const [newProhibitName, setNewProhibitName] = useState('');
@@ -285,7 +292,7 @@ function PolicyBuilderInner() {
   const [prohibitCompetitorClaims, setProhibitCompetitorClaims] = useState(false);
   const [requireTermsDisclaimer, setRequireTermsDisclaimer] = useState(false);
 
-  // Dynamic Custom Spectrum Preview
+  // Dynamic Custom Banned Spectrum Preview
   const customSpectrumPreview = useMemo(() => {
     const rgb = parseHexToRgb(customRangeBase);
     const r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
@@ -308,6 +315,30 @@ function PolicyBuilderInner() {
       gradient: `linear-gradient(to right, hsl(${hueMin}, 75%, 65%), ${customRangeBase}, hsl(${hueMax}, 75%, 35%))`
     };
   }, [customRangeBase, customRangeTolerance]);
+
+  // Dynamic Custom Approved Spectrum Preview
+  const customApprovedPreview = useMemo(() => {
+    const rgb = parseHexToRgb(customApprovedBase);
+    const r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0;
+    if (max !== min) {
+      const d = max - min;
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    const hRound = Math.round(h);
+    const hueMin = Math.round((hRound - customApprovedTolerance + 360) % 360);
+    const hueMax = Math.round((hRound + customApprovedTolerance) % 360);
+    return {
+      hue: hRound,
+      hueMin,
+      hueMax,
+      gradient: `linear-gradient(to right, hsl(${hueMin}, 75%, 65%), ${customApprovedBase}, hsl(${hueMax}, 75%, 35%))`
+    };
+  }, [customApprovedBase, customApprovedTolerance]);
 
   // Load existing guideline if editing
   useEffect(() => {
@@ -423,8 +454,10 @@ function PolicyBuilderInner() {
       }
     });
 
-    // 2. Prohibited Shade Ranges
+    // 2. Shade Ranges / Spectrums (Prohibited & Approved)
     const parsedProhibitedRanges: ColorRangeItem[] = [];
+    const parsedApprovedRanges: ColorRangeItem[] = [];
+
     STANDARD_SHADE_RANGES.forEach(range => {
       const fam = range.family;
       const banRegex = new RegExp(`(?:no|not|prohibit\\w*|ban\\w*|avoid)\\s+[^.\\n]*?(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum|${fam}\\s+shades?|shades?\\s+of\\s+${fam})|(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum)\\s+[^.\\n]*?(?:prohibit\\w*|ban\\w*|not allowed|avoid)`, 'i');
@@ -433,14 +466,22 @@ function PolicyBuilderInner() {
           parsedProhibitedRanges.push(range);
         }
       }
+
+      const appRegex = new RegExp(`(?:approved|wanted|allow\\w*|permitted)\\s+[^.\\n]*?(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum|${fam}\\s+shades?|shades?\\s+of\\s+${fam})|(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum)\\s+[^.\\n]*?(?:approved|allowed|permitted|wanted)`, 'i');
+      if (appRegex.test(textClean)) {
+        if (!parsedApprovedRanges.some(r => r.id === range.id)) {
+          parsedApprovedRanges.push(range);
+        }
+      }
     });
 
     setProhibitedRanges(parsedProhibitedRanges);
+    setApprovedRanges(parsedApprovedRanges);
     setApprovedColors(parsedApproved);
     setProhibitedColors(parsedProhibited);
 
     // Auto-detect Color Governance Mode
-    const hasApproved = parsedApproved.length > 0;
+    const hasApproved = parsedApproved.length > 0 || parsedApprovedRanges.length > 0;
     const hasBanned = parsedProhibited.length > 0 || parsedProhibitedRanges.length > 0;
     if (textLower.includes('strict allowlist') || (hasApproved && !hasBanned)) {
       setColorMode('approved');
@@ -562,18 +603,21 @@ function PolicyBuilderInner() {
 
     // 7. Visual & Color Governance
     const aNames = approvedColors.map(c => `${c.name} (${c.hex})`).join(', ');
+    const aRangeNames = approvedRanges.map(r => `${r.name} (Hue ${r.hueMin}°–${r.hueMax}°)`).join(', ');
+    const allApprovedDesc = [aRangeNames, aNames].filter(Boolean).join(' and ');
+
     const pNames = prohibitedColors.map(c => `${c.name} (${c.hex})`).join(', ');
     const pRangeNames = prohibitedRanges.map(r => `${r.name} (Hue ${r.hueMin}°–${r.hueMax}°)`).join(', ');
     const allProhibitedDesc = [pRangeNames, pNames].filter(Boolean).join(' and ');
 
-    if (colorMode === 'approved' && approvedColors.length > 0) {
-      rulesList.push(`${ruleNum}. Brand Color Palette (Strict Allowlist): Restricted to approved brand palette: ${aNames}. All other colors outside this list are strictly prohibited.`);
+    if (colorMode === 'approved' && allApprovedDesc) {
+      rulesList.push(`${ruleNum}. Brand Color Palette (Strict Allowlist): Restricted to approved brand colors: ${allApprovedDesc}. All other colors outside this list are strictly prohibited.`);
       ruleNum++;
     } else if (colorMode === 'prohibited' && allProhibitedDesc) {
       rulesList.push(`${ruleNum}. Prohibited Poster Colors (Strict Blocklist): Use of ${allProhibitedDesc} is strictly prohibited. All other colors outside this list are approved.`);
       ruleNum++;
-    } else if (colorMode === 'tiered' && (approvedColors.length > 0 || allProhibitedDesc)) {
-      rulesList.push(`${ruleNum}. Color Governance (Preferred & Not Preferred): Preferred palette: ${aNames || 'None specified'}. Prohibited shades: ${allProhibitedDesc || 'None'}. Unlisted colors are considered neutral.`);
+    } else if (colorMode === 'tiered' && (allApprovedDesc || allProhibitedDesc)) {
+      rulesList.push(`${ruleNum}. Color Governance (Preferred & Not Preferred): Preferred colors: ${allApprovedDesc || 'None specified'}. Prohibited shades: ${allProhibitedDesc || 'None'}. Unlisted colors are considered neutral.`);
       ruleNum++;
     }
 
@@ -610,6 +654,7 @@ function PolicyBuilderInner() {
       company_mode: companyMode,
       person_mode: personMode,
       approved_palette: approvedColors.map(c => c.hex),
+      approved_ranges: approvedRanges,
       prohibited_colors: prohibitedColors.map(c => c.name),
       prohibited_ranges: prohibitedRanges,
       preferred_tones: preferredTones,
@@ -672,6 +717,47 @@ function PolicyBuilderInner() {
   };
   const removeApprovedColor = (idx: number) => {
     setApprovedColors(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const addApprovedRange = (item: ColorRangeItem) => {
+    if (!approvedRanges.some(r => r.id === item.id)) {
+      setApprovedRanges(prev => [...prev, item]);
+    }
+  };
+  const removeApprovedRange = (id: string) => {
+    setApprovedRanges(prev => prev.filter(r => r.id !== id));
+  };
+
+  const addCustomApprovedRange = () => {
+    const rgb = parseHexToRgb(customApprovedBase);
+    const r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0;
+    if (max !== min) {
+      const d = max - min;
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    const hRound = Math.round(h);
+    const hueMin = Math.round((hRound - customApprovedTolerance + 360) % 360);
+    const hueMax = Math.round((hRound + customApprovedTolerance) % 360);
+    const name = customApprovedName.trim() || `Custom Approved Shade (${customApprovedBase} ±${customApprovedTolerance}°)`;
+
+    const customItem: ColorRangeItem = {
+      id: `custom_app_${Date.now()}`,
+      name,
+      family: 'custom',
+      hueMin,
+      hueMax,
+      desc: `Hue range ${hueMin}°–${hueMax}° around ${customApprovedBase}`,
+      gradient: `linear-gradient(to right, hsl(${hueMin}, 75%, 65%), ${customApprovedBase}, hsl(${hueMax}, 75%, 35%))`
+    };
+
+    setApprovedRanges(prev => [...prev, customItem]);
+    setShowCustomApprovedRangeBuilder(false);
+    setCustomApprovedName('');
   };
 
   const addProhibitedColor = () => {
@@ -1037,100 +1123,292 @@ function PolicyBuilderInner() {
               {(colorMode === 'approved' || colorMode === 'tiered') && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                    <span>Approved Brand Palette Preview</span>
+                    <span>Approved Brand Palette &amp; Spectrum Preview</span>
                     <span className="font-mono text-xs font-bold text-indigo-600">
-                      {approvedColors.length} Colors Defined
+                      {approvedColors.length} Colors · {approvedRanges.length} Spectrums Defined
                     </span>
                   </div>
                   <div className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 flex flex-wrap items-center gap-2">
-                    {approvedColors.length === 0 ? (
-                      <span className="text-xs text-slate-400 italic">No approved brand swatches specified (0 colors)</span>
+                    {approvedColors.length === 0 && approvedRanges.length === 0 ? (
+                      <span className="text-xs text-slate-400 italic">No approved brand swatches or shade spectrums specified (0 colors)</span>
                     ) : (
-                      approvedColors.map((col, idx) => (
-                        <span
-                          key={`preview-${idx}`}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-white text-slate-900 shadow-2xs border border-slate-200"
-                        >
-                          <span className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0" style={{ backgroundColor: col.hex }} />
-                          {col.name ? `${col.name} (${col.hex})` : col.hex}
-                        </span>
-                      ))
+                      <>
+                        {approvedColors.map((col, idx) => (
+                          <span
+                            key={`preview-${idx}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-white text-slate-900 shadow-2xs border border-slate-200"
+                          >
+                            <span className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0" style={{ backgroundColor: col.hex }} />
+                            {col.name ? `${col.name} (${col.hex})` : col.hex}
+                          </span>
+                        ))}
+                        {approvedRanges.map((range, idx) => (
+                          <span
+                            key={`range-preview-${idx}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-emerald-950 shadow-2xs border border-emerald-300"
+                          >
+                            <span className="w-4 h-3 rounded-md shrink-0 shadow-2xs border border-black/10" style={{ background: range.gradient }} />
+                            {range.name} ({range.hueMin}°–{range.hueMax}°)
+                          </span>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Grid: Approved (Swatches only) vs Prohibited (Swatches + Spectrum) */}
+              {/* Grid: Approved vs Prohibited */}
               <div className={`grid gap-6 ${colorMode === 'tiered' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-                {/* ── Approved Colors (SPECIFIC SWATCHES ONLY - NO SPECTRUM) ── */}
+                {/* ── Approved Colors (SWATCHES + SPECTRUMS/RANGES) ── */}
                 {(colorMode === 'approved' || colorMode === 'tiered') && (
-                  <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-200 space-y-4">
+                  <div className="bg-emerald-50/40 p-5 rounded-2xl border border-emerald-200/80 space-y-5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                         {colorMode === 'approved' ? 'Approved Brand Palette (Strict Allowlist)' : 'Approved Brand Palette (Wanted)'}
                       </span>
-                      <span className="text-xs text-slate-400 font-mono">{approvedColors.length} colors</span>
+                      <span className="text-xs text-emerald-600 font-mono">
+                        {approvedColors.length} colors · {approvedRanges.length} spectrums
+                      </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-500">
-                      Specify exact official brand colors (e.g. Primary Indigo, Navy). In strict allowlist mode, any color outside these swatches is prohibited.
-                    </p>
+                    {/* 1. Specific Approved Hex Swatches */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        1. Specific Approved Hex Colors
+                      </span>
+                      <div className="flex flex-wrap gap-2 min-h-[36px] items-center">
+                        {approvedColors.length === 0 ? (
+                          <p className="text-xs text-emerald-600/70 italic">No specific hex colors added.</p>
+                        ) : (
+                          approvedColors.map((color, index) => (
+                            <div
+                              key={index}
+                              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-white text-xs text-emerald-950 shadow-2xs"
+                            >
+                              <span
+                                className="w-4 h-4 rounded-md border border-black/10 shrink-0"
+                                style={{ backgroundColor: color.hex }}
+                              />
+                              <span className="font-semibold">{color.name}</span>
+                              <span className="font-mono text-[11px] text-emerald-600">{color.hex}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeApprovedColor(index)}
+                                className="text-emerald-400 hover:text-rose-600 transition-colors ml-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
 
-                    {/* Active Approved Swatches */}
-                    <div className="flex flex-wrap gap-2 min-h-[44px] items-center">
-                      {approvedColors.length === 0 ? (
-                        <div className="w-full py-3 px-3 rounded-xl border border-dashed border-slate-200 bg-white text-center">
-                          <p className="text-xs text-slate-400 italic">No approved colors defined yet. Add swatches below.</p>
+                      {/* Add Specific Approved Swatch */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-emerald-200/60">
+                        <input
+                          type="color"
+                          value={newColorHex}
+                          onChange={e => setNewColorHex(e.target.value)}
+                          className="w-9 h-9 rounded-xl cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                          title="Pick color"
+                        />
+                        <input
+                          type="text"
+                          value={newColorName}
+                          onChange={e => setNewColorName(e.target.value)}
+                          placeholder="Color label (e.g. Electric Violet, Teal, Navy)"
+                          className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-white focus:ring-1 focus:ring-slate-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={addApprovedColor}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Swatch
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Whole Shade Spectrums / Color Ranges (Approved Families) */}
+                    <div className="pt-3 border-t border-emerald-200/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                          <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>2. Whole Shade Spectrums (Approve Entire Color Families)</span>
+                        </span>
+                        <span className="text-xs text-emerald-600 font-mono">{approvedRanges.length} active</span>
+                      </div>
+
+                      {/* Active Approved Ranges */}
+                      <div className="flex flex-wrap gap-2 min-h-[36px] items-center">
+                        {approvedRanges.length === 0 ? (
+                          <p className="text-xs text-emerald-600/70 italic">
+                            No shade spectrum approved. Choose a whole color family below to approve all its shades (e.g. All Blue Shades).
+                          </p>
+                        ) : (
+                          approvedRanges.map((range) => (
+                            <div
+                              key={range.id}
+                              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-white text-xs text-emerald-950 shadow-2xs"
+                            >
+                              <span
+                                className="w-5 h-3.5 rounded-md shrink-0 shadow-2xs border border-black/10"
+                                style={{ background: range.gradient }}
+                              />
+                              <span className="font-bold">{range.name}</span>
+                              <span className="font-mono text-[10px] text-emerald-700">Hue {range.hueMin}°–{range.hueMax}°</span>
+                              <button
+                                type="button"
+                                onClick={() => removeApprovedRange(range.id)}
+                                className="text-emerald-400 hover:text-rose-600 transition-colors ml-1"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Preset Shade Spectrum Chips */}
+                      <div className="bg-white p-3 rounded-xl border border-emerald-200 space-y-2">
+                        <div className="text-[10px] font-semibold text-emerald-900">
+                          Quick-Add Spectrum Range (Approve Entire Color Family):
                         </div>
-                      ) : (
-                        approvedColors.map((color, index) => (
-                          <div
-                            key={index}
-                            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-800 shadow-2xs"
+                        <div className="flex flex-wrap gap-1.5">
+                          {STANDARD_SHADE_RANGES.map((std) => {
+                            const isSelected = approvedRanges.some(r => r.id === std.id);
+                            return (
+                              <button
+                                key={std.id}
+                                type="button"
+                                onClick={() => isSelected ? removeApprovedRange(std.id) : addApprovedRange(std)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'
+                                }`}
+                              >
+                                <span className="w-3.5 h-2 rounded-sm shrink-0" style={{ background: std.gradient }} />
+                                <span>{std.name}</span>
+                                {isSelected && <Check className="w-3 h-3 ml-0.5" />}
+                              </button>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            onClick={() => setShowCustomApprovedRangeBuilder(!showCustomApprovedRangeBuilder)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1 ${
+                              showCustomApprovedRangeBuilder
+                                ? 'bg-emerald-600 text-white border-emerald-700'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            }`}
                           >
-                            <span
-                              className="w-4 h-4 rounded-md border border-black/10 shrink-0"
-                              style={{ backgroundColor: color.hex }}
-                            />
-                            <span className="font-semibold">{color.name}</span>
-                            <span className="font-mono text-[11px] text-slate-500">{color.hex}</span>
+                            <Sliders className="w-3 h-3" />
+                            <span>+ Custom Spectrum...</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Custom Approved Spectrum Builder */}
+                      {showCustomApprovedRangeBuilder && (
+                        <div className="p-4 bg-white border border-emerald-200 rounded-xl space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                              <Sliders className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Build Custom Shade Spectrum (Approved)</span>
+                            </span>
                             <button
                               type="button"
-                              onClick={() => removeApprovedColor(index)}
-                              className="text-slate-400 hover:text-rose-600 transition-colors ml-1"
+                              onClick={() => setShowCustomApprovedRangeBuilder(false)}
+                              className="text-slate-400 hover:text-slate-600"
                             >
-                              <X className="w-3.5 h-3.5" />
+                              <X className="w-4 h-4" />
                             </button>
                           </div>
-                        ))
-                      )}
-                    </div>
 
-                    {/* Add Approved Swatch */}
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-200/80">
-                      <input
-                        type="color"
-                        value={newColorHex}
-                        onChange={e => setNewColorHex(e.target.value)}
-                        className="w-9 h-9 rounded-xl cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                        title="Pick color"
-                      />
-                      <input
-                        type="text"
-                        value={newColorName}
-                        onChange={e => setNewColorName(e.target.value)}
-                        placeholder="Color label (e.g. Electric Violet, Teal, Navy)"
-                        className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-white focus:ring-1 focus:ring-slate-900"
-                      />
-                      <button
-                        type="button"
-                        onClick={addApprovedColor}
-                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Add Swatch
-                      </button>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                                Center Base Color
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  value={customApprovedBase}
+                                  onChange={e => setCustomApprovedBase(e.target.value)}
+                                  className="w-9 h-9 rounded-xl cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                                />
+                                <input
+                                  type="text"
+                                  value={customApprovedBase}
+                                  onChange={e => setCustomApprovedBase(e.target.value)}
+                                  className="w-28 px-2.5 py-1.5 text-xs font-mono border border-slate-200 rounded-lg bg-slate-50"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] font-bold text-slate-600 uppercase">
+                                  Hue Spectrum Tolerance
+                                </label>
+                                <span className="text-xs font-mono font-bold text-emerald-600">
+                                  ±{customApprovedTolerance}° (Total {customApprovedTolerance * 2}°)
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min={10}
+                                max={50}
+                                step={5}
+                                value={customApprovedTolerance}
+                                onChange={e => setCustomApprovedTolerance(Number(e.target.value))}
+                                className="w-full accent-emerald-600 cursor-pointer"
+                              />
+                              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                                <span>Narrow (±10°)</span>
+                                <span>Wide (±50°)</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Calculated Spectrum Preview */}
+                          <div>
+                            <div className="text-[10px] font-semibold text-slate-500 mb-1 flex items-center justify-between">
+                              <span>Calculated Hue Spectrum:</span>
+                              <span className="font-mono text-xs text-emerald-700">
+                                Hue {customApprovedPreview.hueMin}° – {customApprovedPreview.hueMax}°
+                              </span>
+                            </div>
+                            <div
+                              className="h-8 w-full rounded-xl border border-black/10 shadow-inner flex items-center justify-center text-xs font-bold text-white drop-shadow"
+                              style={{ background: customApprovedPreview.gradient }}
+                            >
+                              Approved Spectrum Preview
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="text"
+                              value={customApprovedName}
+                              onChange={e => setCustomApprovedName(e.target.value)}
+                              placeholder="Spectrum Name (e.g. Royal to Cobalt Blue)"
+                              className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800"
+                            />
+                            <button
+                              type="button"
+                              onClick={addCustomApprovedRange}
+                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0 shadow-2xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Approve Spectrum</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
