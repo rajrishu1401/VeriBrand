@@ -10,6 +10,7 @@ import io
 import math
 import os
 import re
+import colorsys
 from typing import List, Dict, Optional, Tuple, Any
 from PIL import Image
 import numpy as np
@@ -60,6 +61,34 @@ def is_neutral_grayscale(rgb: Tuple[int, int, int]) -> bool:
 def color_distance(c1: Tuple[int, int, int], c2: Tuple[int, int, int]) -> float:
     """Euclidean distance in RGB space"""
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(c1, c2)))
+
+
+def is_color_match(rgb1: Tuple[int, int, int], rgb2: Tuple[int, int, int], max_dist: float = 55.0) -> bool:
+    """
+    Perceptually accurate color matching.
+    Checks Euclidean RGB distance and verifies hue does not cross distinct color families.
+    Prevents Blue from accidentally matching Indigo/Purple (e.g. #6962D3 vs #3B82F6),
+    or Red from accidentally matching Orange or Pink.
+    """
+    dist = color_distance(rgb1, rgb2)
+    if dist > max_dist:
+        return False
+    if dist < 25.0:
+        return True
+
+    r1, g1, b1 = [x / 255.0 for x in rgb1]
+    r2, g2, b2 = [x / 255.0 for x in rgb2]
+    h1, l1, s1 = colorsys.rgb_to_hls(r1, g1, b1)
+    h2, l2, s2 = colorsys.rgb_to_hls(r2, g2, b2)
+
+    # If both colors have discernible saturation, enforce hue preservation
+    if s1 > 0.15 and s2 > 0.15:
+        hue_diff = min(abs(h1 * 360 - h2 * 360), 360 - abs(h1 * 360 - h2 * 360))
+        # Blue is ~217°, Indigo is ~244° (difference 27°). Maximum allowable hue drift is 20°
+        if hue_diff > 20.0:
+            return False
+
+    return True
 
 
 def calculate_relative_luminance(rgb: Tuple[int, int, int]) -> float:
@@ -272,8 +301,7 @@ class VisualBrandEngine:
             # =========================================================================
             elif color_mode == "prohibited" and rules.get("banned_colors"):
                 for banned in rules["banned_colors"]:
-                    dist = color_distance(rgb, banned["rgb"])
-                    if dist < 85 and pct > 1.5:
+                    if is_color_match(rgb, banned["rgb"]) and pct > 1.5:
                         flags.append({
                             "issue_type": "Prohibited Color Usage",
                             "severity": "critical",
@@ -291,8 +319,7 @@ class VisualBrandEngine:
             else:
                 # Flag explicitly banned/not-preferred colors
                 for banned in rules.get("banned_colors", []):
-                    dist = color_distance(rgb, banned["rgb"])
-                    if dist < 85 and pct > 1.5:
+                    if is_color_match(rgb, banned["rgb"]) and pct > 1.5:
                         flags.append({
                             "issue_type": "Prohibited Color Usage",
                             "severity": "critical",
