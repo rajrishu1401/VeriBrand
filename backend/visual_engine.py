@@ -148,9 +148,22 @@ def parse_color_rules_from_text(guideline_text: Optional[str]) -> Dict[str, Any]
                     except Exception:
                         pass
 
+    # Determine Governance Mode:
+    # 1) 'approved': Strict Allowlist (everything outside approved colors is prohibited)
+    # 2) 'prohibited': Strict Blocklist (only prohibited colors are banned, everything outside is approved)
+    # 3) 'tiered': Preferred & Not Preferred (unlisted colors are considered neutral)
+    color_mode = "tiered"
+    if "strict allowlist" in text_lower or (bool(approved_colors) and not bool(banned_colors)):
+        color_mode = "approved"
+    elif "strict blocklist" in text_lower or (bool(banned_colors) and not bool(approved_colors)):
+        color_mode = "prohibited"
+    else:
+        color_mode = "tiered"
+
     return {
         "banned_colors": banned_colors,
         "approved_colors": approved_colors,
+        "color_mode": color_mode,
         "has_wcag_rule": any(w in text_lower for w in ["wcag", "contrast", "accessibility", "iso/iec 40500"]),
         "has_neon_rule": any(w in text_lower for w in ["neon", "fluorescent", "saturated"]),
         "has_approved_palette": bool(approved_colors) or has_approved_keywords
@@ -200,67 +213,112 @@ class VisualBrandEngine:
 
     def audit_color_palette(self, extracted_colors: List[Dict], guidelines_text: Optional[str] = None, include_standard_rules: bool = False) -> List[Dict]:
         """
-        Audit extracted colors against active brand guidelines and optional standard rules.
+        Audit extracted colors against active brand guidelines using the selected Governance Mode:
+        - Mode 1 ('approved'): Strict Allowlist. Outside of approved colors, all colors are prohibited.
+        - Mode 2 ('prohibited'): Strict Blocklist. Only prohibited colors are banned; everything outside is approved.
+        - Mode 3 ('tiered'): Preferred & Not Preferred. Unlisted colors are considered neutral.
         """
         flags = []
         rules = parse_color_rules_from_text(guidelines_text) if guidelines_text else {
-            "banned_colors": [], "has_wcag_rule": False, "has_neon_rule": True, "has_approved_palette": True
+            "banned_colors": [], "approved_colors": [], "color_mode": "tiered", "has_wcag_rule": False, "has_neon_rule": True, "has_approved_palette": True
         }
+        color_mode = rules.get("color_mode", "tiered")
 
         for c in extracted_colors:
             rgb = tuple(c["rgb"])
             hex_code = c["hex"]
             pct = c["percentage"]
 
-            # 1. Check guideline-specific banned colors (e.g., Red or Blue from new_rule.txt)
-            for banned in rules["banned_colors"]:
-                dist = color_distance(rgb, banned["rgb"])
-                if dist < 85 and pct > 3.0:
-                    flags.append({
-                        "issue_type": "Prohibited Color Usage",
-                        "severity": "critical",
-                        "flagged_text": f"Prohibited {banned['name']} ({hex_code})",
-                        "rule_citation": "Guideline Rule: Prohibited Brand Color",
-                        "explanation": f"Detected {pct}% of image using prohibited color {banned['name']} ({hex_code}). Guidelines ban this color in creative assets.",
-                        "suggested_fix": f"Remove {banned['name']} ({hex_code}) and use approved brand neutral or primary tones.",
-                        "confidence": "high"
-                    })
-
-            # 2. Check for banned neon colors (only if standard rules enabled, or guideline explicitly bans neons, or no custom guideline)
-            if include_standard_rules or rules["has_neon_rule"] or not guidelines_text:
+            # Standard Baseline Neon Check
+            if include_standard_rules or rules["has_neon_rule"]:
                 for neon in PROHIBITED_NEONS:
                     dist = color_distance(rgb, neon["rgb"])
-                    if dist < 45 and pct > 3.0:
+                    if dist < 45 and pct > 1.5:
                         flags.append({
                             "issue_type": "Prohibited Color Usage",
                             "severity": "critical",
                             "flagged_text": f"Prohibited {neon['name']} ({hex_code})",
                             "rule_citation": "Section 12.1: Prohibited Background Colors",
-                            "explanation": f"Detected {pct}% of image using prohibited high-saturation color {hex_code}. Guidelines ban fluorescent neons and harsh saturated backgrounds.",
-                            "suggested_fix": "Replace background with approved primary Indigo (#4F46E5) or Slate Dark (#1E293B).",
+                            "explanation": f"Detected {pct}% of image using prohibited high-saturation color {hex_code}. Guidelines ban fluorescent neons.",
+                            "suggested_fix": "Replace with approved brand colors.",
                             "confidence": "high"
                         })
 
-            # 3. Check if color matches approved brand palette
-            # When guideline defines an approved palette, verify all dominant non-neutral colors (>= 2.0% coverage)
-            if (include_standard_rules or rules["has_approved_palette"] or not guidelines_text) and pct >= 2.0:
-                # Permitted neutral foundation colors (white canvas, black text, neutral grays) are exempt from off-brand flags
-                if not is_neutral_grayscale(rgb):
-                    palette_to_check = rules.get("approved_colors") if (rules.get("approved_colors") and len(rules["approved_colors"]) > 0) else self.approved_palette
+            # =========================================================================
+            # OPTION 1: Strict Approved (Allowlist Mode)
+            # Apart from selected approved colors, everything else is strictly prohibited!
+            # =========================================================================
+            if color_mode == "approved" and rules.get("approved_colors"):
+                closest_approved = min(
+                    rules["approved_colors"],
+                    key=lambda a: color_distance(rgb, a["rgb"])
+                )
+                min_dist = color_distance(rgb, closest_approved["rgb"])
+                if min_dist > 80 and pct >= 1.5:
+                    if not is_neutral_grayscale(rgb):
+                        flags.append({
+                            "issue_type": "Prohibited Color Usage",
+                            "severity": "critical",
+                            "flagged_text": f"Unapproved Color ({hex_code})",
+                            "rule_citation": "Color Governance: Strict Approved Allowlist",
+                            "explanation": f"Guidelines enforce Strict Approved mode ({', '.join(p['hex'] for p in rules['approved_colors'])}). Non-approved color {hex_code} ({pct}% coverage) is strictly prohibited.",
+                            "suggested_fix": f"Replace with approved brand color '{closest_approved['name']}' ({closest_approved['hex']}).",
+                            "confidence": "high"
+                        })
+
+            # =========================================================================
+            # OPTION 2: Strict Prohibited (Blocklist Mode)
+            # Only prohibited colors are banned; everything outside it will be approved!
+            # =========================================================================
+            elif color_mode == "prohibited" and rules.get("banned_colors"):
+                for banned in rules["banned_colors"]:
+                    dist = color_distance(rgb, banned["rgb"])
+                    if dist < 85 and pct > 1.5:
+                        flags.append({
+                            "issue_type": "Prohibited Color Usage",
+                            "severity": "critical",
+                            "flagged_text": f"Prohibited {banned['name']} ({hex_code})",
+                            "rule_citation": "Color Governance: Strict Prohibited Blocklist",
+                            "explanation": f"Detected {pct}% of image using prohibited color {banned['name']} ({hex_code}). Guidelines strictly ban this color.",
+                            "suggested_fix": f"Remove {banned['name']} ({hex_code}). All other colors outside this prohibited list are approved.",
+                            "confidence": "high"
+                        })
+
+            # =========================================================================
+            # OPTION 3: Preferred & Not Preferred (Tiered Mode)
+            # Preferred + Not Preferred. If not mentioned in either, consider as Neutral!
+            # =========================================================================
+            else:
+                # Flag explicitly banned/not-preferred colors
+                for banned in rules.get("banned_colors", []):
+                    dist = color_distance(rgb, banned["rgb"])
+                    if dist < 85 and pct > 1.5:
+                        flags.append({
+                            "issue_type": "Prohibited Color Usage",
+                            "severity": "critical",
+                            "flagged_text": f"Prohibited {banned['name']} ({hex_code})",
+                            "rule_citation": "Color Governance: Not Preferred Color",
+                            "explanation": f"Detected {pct}% of image using not-preferred color {banned['name']} ({hex_code}).",
+                            "suggested_fix": f"Remove {banned['name']} ({hex_code}).",
+                            "confidence": "high"
+                        })
+                # In Option 3, unlisted colors are considered NEUTRAL.
+                # Only if a color is a major dominant area (> 25%) and noticeably off-palette, suggest aligning.
+                if rules.get("approved_colors") and pct > 25.0 and not is_neutral_grayscale(rgb):
                     closest_approved = min(
-                        palette_to_check,
+                        rules["approved_colors"],
                         key=lambda a: color_distance(rgb, a["rgb"])
                     )
                     min_dist = color_distance(rgb, closest_approved["rgb"])
-                    if min_dist > 85:  # Noticeably off-brand color
+                    if min_dist > 85:
                         flags.append({
                             "issue_type": "Off-Brand Color Palette",
                             "severity": "warning",
-                            "flagged_text": f"Unapproved Dominant Color ({hex_code})",
-                            "rule_citation": "Section 12.1: Approved Brand Color Palette",
-                            "explanation": f"Color {hex_code} ({pct}% coverage) deviates from the official approved brand palette ({', '.join(p['hex'] for p in palette_to_check[:4])}).",
-                            "suggested_fix": f"Realign with approved brand color '{closest_approved['name']}' ({closest_approved['hex']}).",
-                            "confidence": "high"
+                            "flagged_text": f"Off-Brand Dominant Color ({hex_code})",
+                            "rule_citation": "Color Governance: Preferred Voice",
+                            "explanation": f"Dominant color {hex_code} ({pct}%) is not in preferred palette ({', '.join(p['hex'] for p in rules['approved_colors'][:3])}). Unlisted colors are considered neutral, but preferred palette is recommended.",
+                            "suggested_fix": f"Consider realigning with preferred brand color '{closest_approved['name']}' ({closest_approved['hex']}).",
+                            "confidence": "medium"
                         })
 
         return flags
@@ -402,6 +460,8 @@ If no violations exist, return "flags": [].
 
         # 1. Deterministic dominant colors
         dominant_colors = self.extract_dominant_colors(image, num_colors=5)
+        color_rules = parse_color_rules_from_text(guidelines_text) if guidelines_text else {}
+        color_mode = color_rules.get("color_mode", "tiered")
 
         # 2. Deterministic palette check
         palette_flags = self.audit_color_palette(dominant_colors, guidelines_text=guidelines_text, include_standard_rules=include_standard_rules)
@@ -426,6 +486,9 @@ If no violations exist, return "flags": [].
         return {
             "image_dimensions": f"{image.width}x{image.height}",
             "dominant_palette": dominant_colors,
+            "color_governance_mode": color_mode,
+            "approved_colors": [a["hex"] for a in color_rules.get("approved_colors", [])],
+            "banned_colors": [b["hex"] for b in color_rules.get("banned_colors", [])],
             "wcag_analysis": {
                 "contrast_ratio": wcag_result["contrast_ratio"],
                 "wcag_aa_pass": wcag_result["wcag_aa_pass"],

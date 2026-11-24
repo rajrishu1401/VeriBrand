@@ -113,6 +113,11 @@ class GuidelineCreateRequest(BaseModel):
     description: Optional[str] = None
     include_standard_rules: bool = True
     # Standard Symmetrical Approved vs Prohibited Fields
+    color_mode: str = "tiered"  # 'approved' | 'prohibited' | 'tiered'
+    company_mode: str = "tiered"  # 'approved' | 'prohibited' | 'tiered'
+    person_mode: str = "tiered"  # 'approved' | 'prohibited' | 'tiered'
+    symbol_mode: str = "prohibited"  # 'approved' | 'prohibited' | 'tiered'
+    tone_mode: str = "tiered"  # 'approved' | 'prohibited' | 'tiered'
     approved_palette: List[str] = []
     prohibited_colors: List[str] = []
     approved_companies: List[str] = []
@@ -195,6 +200,9 @@ class VisualAuditResponse(BaseModel):
     submission_id: str
     image_dimensions: str
     dominant_palette: List[ColorItem]
+    color_governance_mode: Optional[str] = "tiered"
+    approved_colors: Optional[List[str]] = []
+    banned_colors: Optional[List[str]] = []
     wcag_analysis: WCAGResult
     ocr_text: Optional[str] = ""
     logo_detected: bool = False
@@ -515,6 +523,9 @@ async def audit_image_endpoint(
             submission_id=submission_id,
             image_dimensions=result["image_dimensions"],
             dominant_palette=[ColorItem(**c) for c in result["dominant_palette"]],
+            color_governance_mode=result.get("color_governance_mode", "tiered"),
+            approved_colors=result.get("approved_colors", []),
+            banned_colors=result.get("banned_colors", []),
             wcag_analysis=WCAGResult(**result["wcag_analysis"]),
             ocr_text=result.get("ocr_text", ""),
             logo_detected=result.get("logo_detected", False),
@@ -732,13 +743,19 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
                 rule_num += 1
 
             # Tone & Voice Standards
-            if req.preferred_tones:
-                rules_text_list.append(f"{rule_num}. Brand Voice & Tone: Approved primary voice must remain {', '.join(req.preferred_tones)}.")
+            if req.tone_mode == "approved" and req.preferred_tones:
+                rules_text_list.append(f"{rule_num}. Brand Voice & Tone (Strict Allowlist): Primary voice must remain {', '.join(req.preferred_tones)}. All other tones are strictly prohibited.")
                 rule_num += 1
-
-            if req.prohibited_tones:
-                rules_text_list.append(f"{rule_num}. Prohibited Tones: Marketing copy must not use {', '.join(req.prohibited_tones)} tone.")
+            elif req.tone_mode == "prohibited" and req.prohibited_tones:
+                rules_text_list.append(f"{rule_num}. Prohibited Tones (Strict Blocklist): Marketing copy must not use {', '.join(req.prohibited_tones)} tone.")
                 rule_num += 1
+            else:
+                if req.preferred_tones:
+                    rules_text_list.append(f"{rule_num}. Brand Voice & Tone: Approved primary voice must remain {', '.join(req.preferred_tones)}.")
+                    rule_num += 1
+                if req.prohibited_tones:
+                    rules_text_list.append(f"{rule_num}. Prohibited Tones: Marketing copy must not use {', '.join(req.prohibited_tones)} tone. Unlisted tones are considered neutral.")
+                    rule_num += 1
 
             # Symbols & Punctuation Constraints
             symbols = list(req.prohibited_symbols)
@@ -751,7 +768,10 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
 
             if symbols:
                 sym_str = ", ".join(f"'{s}'" if s != 'Emoji' else 'Emojis' for s in symbols)
-                rules_text_list.append(f"{rule_num}. Prohibited Symbols & Punctuation: Use of {sym_str} is strictly prohibited in marketing copy.")
+                if req.symbol_mode == "approved":
+                    rules_text_list.append(f"{rule_num}. Approved Symbols & Punctuation (Strict Allowlist): Only {sym_str} permitted. All other symbols are strictly prohibited.")
+                else:
+                    rules_text_list.append(f"{rule_num}. Prohibited Symbols & Punctuation (Strict Blocklist): Use of {sym_str} is strictly prohibited in marketing copy. Standard punctuation is permitted.")
                 rule_num += 1
 
             # Prohibited Vocabulary
@@ -765,27 +785,48 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
                     rule_num += 1
 
             # Company & Brand Governance
-            if req.approved_companies:
-                rules_text_list.append(f"{rule_num}. Approved Brand Partners & Collaborations: Marketing copy may reference authorized partners: {', '.join(req.approved_companies)}.")
-                rule_num += 1
-
             comp_list = list(req.prohibited_companies) or list(req.blocked_competitors)
-            if comp_list or req.prohibit_competitor_mentions or req.prohibit_competitor_claims:
-                comp_str = f": {', '.join(comp_list)}" if comp_list else ""
-                rules_text_list.append(f"{rule_num}. Prohibited Competitor Brands: Mentions of competitor companies{comp_str} are strictly prohibited.")
+            if req.company_mode == "approved" and req.approved_companies:
+                rules_text_list.append(f"{rule_num}. Approved Brand Partners & Collaborations (Strict Allowlist): Marketing copy may only reference authorized partners: {', '.join(req.approved_companies)}. All other external company or competitor mentions are strictly prohibited.")
                 rule_num += 1
+            elif req.company_mode == "prohibited" and (comp_list or req.prohibit_competitor_mentions):
+                comp_str = f": {', '.join(comp_list)}" if comp_list else ""
+                rules_text_list.append(f"{rule_num}. Prohibited Competitor Brands (Strict Blocklist): Mentions of competitor companies{comp_str} are strictly prohibited. Non-competitor brands are permitted.")
+                rule_num += 1
+            else:
+                if req.approved_companies and comp_list:
+                    rules_text_list.append(f"{rule_num}. Company Governance (Preferred & Not Preferred): Preferred partners: {', '.join(req.approved_companies)}. Prohibited competitors: {', '.join(comp_list)}. Unlisted companies are considered neutral.")
+                    rule_num += 1
+                else:
+                    if req.approved_companies:
+                        rules_text_list.append(f"{rule_num}. Approved Brand Partners & Collaborations: Marketing copy may reference authorized partners: {', '.join(req.approved_companies)}.")
+                        rule_num += 1
+                    if comp_list:
+                        rules_text_list.append(f"{rule_num}. Prohibited Competitor Brands: Mentions of competitor companies: {', '.join(comp_list)} are strictly prohibited.")
+                        rule_num += 1
 
             # Person & Entity Governance
             spokespersons = list(req.approved_persons) or list(req.whitelisted_entities) or list(req.allowed_ambassadors)
-            if spokespersons:
-                rules_text_list.append(f"{rule_num}. Approved Brand Spokespersons: Authorized brand ambassadors and leadership who can be mentioned: {', '.join(spokespersons)}.")
-                rule_num += 1
-
             person_banned = list(req.prohibited_persons)
-            if person_banned or req.prohibit_person_names:
-                p_str = f": {', '.join(person_banned)}" if person_banned else ""
-                rules_text_list.append(f"{rule_num}. Prohibited Person Names: Unauthorized individual person names{p_str} must not be mentioned in marketing copy.")
+            if req.person_mode == "approved" and spokespersons:
+                rules_text_list.append(f"{rule_num}. Approved Brand Spokespersons (Strict Allowlist): Only authorized brand ambassadors and leadership: {', '.join(spokespersons)} may be mentioned. Names of any other individual persons are strictly prohibited.")
                 rule_num += 1
+            elif req.person_mode == "prohibited" and (person_banned or req.prohibit_person_names):
+                p_str = f": {', '.join(person_banned)}" if person_banned else ""
+                rules_text_list.append(f"{rule_num}. Prohibited Person Names (Strict Blocklist): Unauthorized individual person names{p_str} must not be mentioned in marketing copy.")
+                rule_num += 1
+            else:
+                if spokespersons and person_banned:
+                    rules_text_list.append(f"{rule_num}. Entity Governance (Preferred & Not Preferred): Preferred ambassadors: {', '.join(spokespersons)}. Prohibited persons: {', '.join(person_banned)}. Unlisted names are considered neutral.")
+                    rule_num += 1
+                else:
+                    if spokespersons:
+                        rules_text_list.append(f"{rule_num}. Approved Brand Spokespersons: Authorized brand ambassadors and leadership who can be mentioned: {', '.join(spokespersons)}.")
+                        rule_num += 1
+                    if person_banned or req.prohibit_person_names:
+                        p_str = f": {', '.join(person_banned)}" if person_banned else ""
+                        rules_text_list.append(f"{rule_num}. Prohibited Person Names: Unauthorized individual person names{p_str} must not be mentioned in marketing copy.")
+                        rule_num += 1
 
             # Legal Disclaimers & Guarantees
             if req.prohibit_guarantees:
@@ -796,16 +837,27 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
                 rules_text_list.append(f"{rule_num}. Legal Disclaimers: All promotional claims must include mandatory 'Terms and conditions apply' disclaimer.")
                 rule_num += 1
 
-            # Visual & Color Rules (Prefer Approved if both exist)
-            if req.approved_palette:
-                palette_str = ", ".join(req.approved_palette)
-                rules_text_list.append(f"{rule_num}. Approved Brand Color Palette: {palette_str}.")
-                rule_num += 1
+            # Visual & Color Rules (Modes: approved, prohibited, tiered)
+            palette_str = ", ".join(req.approved_palette) if req.approved_palette else ""
+            colors_str = " and ".join(req.prohibited_colors) if req.prohibited_colors else ""
 
-            if req.prohibited_colors:
-                colors_str = " and ".join(req.prohibited_colors)
-                rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
+            if req.color_mode == "approved" and palette_str:
+                rules_text_list.append(f"{rule_num}. Approved Brand Color Palette (Strict Allowlist): {palette_str}. All other colors outside this approved palette are strictly prohibited.")
                 rule_num += 1
+            elif req.color_mode == "prohibited" and colors_str:
+                rules_text_list.append(f"{rule_num}. Prohibited Colors (Strict Blocklist): No {colors_str} colour should be used in posters or creative assets. All other colors outside this prohibited list are approved.")
+                rule_num += 1
+            else:
+                if palette_str and colors_str:
+                    rules_text_list.append(f"{rule_num}. Color Governance (Preferred & Not Preferred): Preferred brand colors: {palette_str}. Prohibited colors: {colors_str}. All other unlisted colors are considered neutral.")
+                    rule_num += 1
+                else:
+                    if palette_str:
+                        rules_text_list.append(f"{rule_num}. Approved Brand Color Palette: {palette_str}.")
+                        rule_num += 1
+                    if colors_str:
+                        rules_text_list.append(f"{rule_num}. No {colors_str} colour should be used in posters or creative assets.")
+                        rule_num += 1
 
             # Additional Custom Rules
             if req.custom_rules_text and req.custom_rules_text.strip():

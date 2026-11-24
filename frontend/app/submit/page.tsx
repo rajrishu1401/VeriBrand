@@ -68,6 +68,9 @@ interface VisualAuditResponse {
   submission_id: string;
   image_dimensions: string;
   dominant_palette: ColorItem[];
+  color_governance_mode?: 'approved' | 'prohibited' | 'tiered';
+  approved_colors?: string[];
+  banned_colors?: string[];
   wcag_analysis: WCAGResult;
   ocr_text?: string;
   logo_detected: boolean;
@@ -1277,6 +1280,7 @@ export default function SubmitPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {visualResult.dominant_palette.map((c, i) => {
+                      const colorGovMode = visualResult.color_governance_mode || 'tiered';
                       const flaggedProhibited = visualResult.flags.find(
                         f => f.issue_type === 'Prohibited Color Usage' &&
                              f.flagged_text?.toLowerCase().includes(c.hex.toLowerCase())
@@ -1286,12 +1290,56 @@ export default function SubmitPage() {
                         f => (f.issue_type === 'Off-Brand Color Palette' || f.flagged_text?.toLowerCase().includes('unapproved')) &&
                              f.flagged_text?.toLowerCase().includes(c.hex.toLowerCase())
                       );
+                      const isExplicitApproved = visualResult.approved_colors && visualResult.approved_colors.some(x => x.toUpperCase() === c.hex.toUpperCase());
                       const isApproved = !isProhibited && !isOffBrand && (
+                        isExplicitApproved ||
                         (visualResult.flags.filter(f => f.issue_type === 'Prohibited Color Usage' || f.issue_type === 'Off-Brand Color Palette').length === 0 &&
                          ['#4F46E5', '#1E1B4B', '#7C3AED', '#1E293B', '#F8FAFC'].includes(c.hex.toUpperCase()))
                       );
                       const isNeutral = isNeutralHex(c.hex);
                       const isCopied = copiedHex === c.hex;
+
+                      // 3-Mode Governance Badge Evaluation
+                      let badgeText = 'Neutral';
+                      let badgeStyle = 'bg-slate-100 text-slate-600 border border-slate-200';
+
+                      if (colorGovMode === 'approved') {
+                        // Mode 1: Strict Approved (Allowlist)
+                        if (isApproved || isExplicitApproved) {
+                          badgeText = 'Approved Brand';
+                          badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                        } else if (isNeutral) {
+                          badgeText = 'Neutral';
+                          badgeStyle = 'bg-slate-100 text-slate-600 border border-slate-200';
+                        } else {
+                          badgeText = 'Prohibited (Unapproved)';
+                          badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200';
+                        }
+                      } else if (colorGovMode === 'prohibited') {
+                        // Mode 2: Strict Prohibited (Blocklist)
+                        if (isProhibited) {
+                          badgeText = 'Prohibited Color';
+                          badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200';
+                        } else {
+                          badgeText = 'Approved Brand';
+                          badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                        }
+                      } else {
+                        // Mode 3: Preferred & Not Preferred (Tiered)
+                        if (isProhibited) {
+                          badgeText = 'Prohibited Color';
+                          badgeStyle = 'bg-rose-50 text-rose-700 border border-rose-200';
+                        } else if (isApproved || isExplicitApproved) {
+                          badgeText = 'Preferred Brand';
+                          badgeStyle = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                        } else if (isOffBrand) {
+                          badgeText = 'Not Preferred';
+                          badgeStyle = 'bg-amber-50 text-amber-700 border border-amber-200';
+                        } else {
+                          badgeText = 'Neutral';
+                          badgeStyle = 'bg-slate-100 text-slate-600 border border-slate-200';
+                        }
+                      }
 
                       return (
                         <button
@@ -1313,19 +1361,9 @@ export default function SubmitPage() {
                               <span className="text-[11px] text-slate-400">{c.percentage}%</span>
                             </div>
                             <span
-                              className={`inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded mt-1 ${
-                                isProhibited
-                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                  : isOffBrand
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : isApproved
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : isNeutral
-                                  ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-                              }`}
+                              className={`inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded mt-1 ${badgeStyle}`}
                             >
-                              {isProhibited ? 'Prohibited Color' : isOffBrand ? 'Off-Brand' : isApproved ? 'Approved Brand' : isNeutral ? 'Neutral' : 'Unapproved'}
+                              {badgeText}
                             </span>
                           </div>
                         </button>

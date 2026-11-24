@@ -381,6 +381,16 @@ export default function GuidelinesDirectoryPage() {
   const [newProhibitHex, setNewProhibitHex] = useState('#EF4444');
   const [newProhibitName, setNewProhibitName] = useState('');
 
+  // 3-Option Governance Modes: 'approved' | 'prohibited' | 'tiered'
+  // Option 1) Approved Only (Strict Allowlist: everything outside is prohibited)
+  // Option 2) Prohibited Only (Strict Blocklist: everything outside is approved)
+  // Option 3) Preferred & Not Preferred (Tiered: unlisted items are neutral)
+  const [colorMode, setColorMode] = useState<'approved' | 'prohibited' | 'tiered'>('tiered');
+  const [companyMode, setCompanyMode] = useState<'approved' | 'prohibited' | 'tiered'>('tiered');
+  const [personMode, setPersonMode] = useState<'approved' | 'prohibited' | 'tiered'>('tiered');
+  const [symbolMode, setSymbolMode] = useState<'approved' | 'prohibited' | 'tiered'>('prohibited');
+  const [toneMode, setToneMode] = useState<'approved' | 'prohibited' | 'tiered'>('tiered');
+
   // Standards Baseline
   const [includeStandardRules, setIncludeStandardRules] = useState(false);
 
@@ -617,19 +627,31 @@ export default function GuidelinesDirectoryPage() {
     }
 
     // 1. Brand Voice & Tone Governance
-    if (preferredTones.length > 0) {
-      rulesList.push(`${ruleNum}. Brand Voice & Tone: Approved primary voice must remain ${preferredTones.join(', ')}.`);
+    if (toneMode === 'approved' && preferredTones.length > 0) {
+      rulesList.push(`${ruleNum}. Brand Voice & Tone (Strict Allowlist): Primary voice must remain ${preferredTones.join(', ')}. All other tones are strictly prohibited.`);
       ruleNum++;
-    }
-    if (prohibitedTones.length > 0) {
-      rulesList.push(`${ruleNum}. Prohibited Tones: Marketing copy must not use ${prohibitedTones.join(', ')} tone.`);
+    } else if (toneMode === 'prohibited' && prohibitedTones.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Tones (Strict Blocklist): Marketing copy must not use ${prohibitedTones.join(', ')} tone.`);
       ruleNum++;
+    } else {
+      if (preferredTones.length > 0) {
+        rulesList.push(`${ruleNum}. Brand Voice & Tone: Approved primary voice must remain ${preferredTones.join(', ')}.`);
+        ruleNum++;
+      }
+      if (prohibitedTones.length > 0) {
+        rulesList.push(`${ruleNum}. Prohibited Tones: Marketing copy must not use ${prohibitedTones.join(', ')} tone. Unlisted tones are considered neutral.`);
+        ruleNum++;
+      }
     }
 
     // 2. Prohibited Symbols & Punctuation
     if (prohibitedSymbols.length > 0) {
       const symList = prohibitedSymbols.map(s => s === 'Emoji' ? 'Emojis' : `'${s}'`).join(', ');
-      rulesList.push(`${ruleNum}. Prohibited Symbols & Punctuation: Use of ${symList} is strictly prohibited in marketing copy.`);
+      if (symbolMode === 'approved') {
+        rulesList.push(`${ruleNum}. Approved Symbols & Punctuation (Strict Allowlist): Only ${symList} permitted. All other symbols are strictly prohibited.`);
+      } else {
+        rulesList.push(`${ruleNum}. Prohibited Symbols & Punctuation (Strict Blocklist): Use of ${symList} is strictly prohibited in marketing copy. Standard punctuation is permitted.`);
+      }
       ruleNum++;
     }
 
@@ -640,23 +662,49 @@ export default function GuidelinesDirectoryPage() {
     }
 
     // 4. Company & Brand Governance
-    if (approvedCompanies.length > 0) {
-      rulesList.push(`${ruleNum}. Approved Brand Partners & Collaborations: Marketing copy may reference authorized partners: ${approvedCompanies.join(', ')}.`);
+    if (companyMode === 'approved' && approvedCompanies.length > 0) {
+      rulesList.push(`${ruleNum}. Approved Brand Partners & Collaborations (Strict Allowlist): Marketing copy may only reference authorized partners: ${approvedCompanies.join(', ')}. All other external company or competitor mentions are strictly prohibited.`);
       ruleNum++;
-    }
-    if (prohibitedCompanies.length > 0) {
-      rulesList.push(`${ruleNum}. Prohibited Competitor Brands: Mentions of competitor companies: ${prohibitedCompanies.join(', ')} are strictly prohibited.`);
+    } else if (companyMode === 'prohibited' && prohibitedCompanies.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Competitor Brands (Strict Blocklist): Mentions of competitor companies: ${prohibitedCompanies.join(', ')} are strictly prohibited. Non-competitor brands are permitted.`);
       ruleNum++;
+    } else {
+      if (approvedCompanies.length > 0 && prohibitedCompanies.length > 0) {
+        rulesList.push(`${ruleNum}. Company Governance (Preferred & Not Preferred): Preferred partners: ${approvedCompanies.join(', ')}. Prohibited competitors: ${prohibitedCompanies.join(', ')}. Unlisted companies are considered neutral.`);
+        ruleNum++;
+      } else {
+        if (approvedCompanies.length > 0) {
+          rulesList.push(`${ruleNum}. Approved Brand Partners & Collaborations: Marketing copy may reference authorized partners: ${approvedCompanies.join(', ')}.`);
+          ruleNum++;
+        }
+        if (prohibitedCompanies.length > 0) {
+          rulesList.push(`${ruleNum}. Prohibited Competitor Brands: Mentions of competitor companies: ${prohibitedCompanies.join(', ')} are strictly prohibited.`);
+          ruleNum++;
+        }
+      }
     }
 
     // 5. Person & Entity Governance
-    if (approvedPersons.length > 0) {
-      rulesList.push(`${ruleNum}. Approved Brand Spokespersons: Authorized brand ambassadors and leadership: ${approvedPersons.join(', ')}.`);
+    if (personMode === 'approved' && approvedPersons.length > 0) {
+      rulesList.push(`${ruleNum}. Approved Brand Spokespersons (Strict Allowlist): Only authorized brand ambassadors and leadership: ${approvedPersons.join(', ')} may be mentioned. Names of any other individual persons are strictly prohibited.`);
       ruleNum++;
-    }
-    if (prohibitedPersons.length > 0) {
-      rulesList.push(`${ruleNum}. Prohibited Person Names: Unauthorized person names: ${prohibitedPersons.join(', ')} must not be mentioned in marketing copy.`);
+    } else if (personMode === 'prohibited' && prohibitedPersons.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Person Names (Strict Blocklist): Unauthorized individual person names: ${prohibitedPersons.join(', ')} must not be mentioned in marketing copy.`);
       ruleNum++;
+    } else {
+      if (approvedPersons.length > 0 && prohibitedPersons.length > 0) {
+        rulesList.push(`${ruleNum}. Entity Governance (Preferred & Not Preferred): Preferred ambassadors: ${approvedPersons.join(', ')}. Prohibited persons: ${prohibitedPersons.join(', ')}. Unlisted names are considered neutral.`);
+        ruleNum++;
+      } else {
+        if (approvedPersons.length > 0) {
+          rulesList.push(`${ruleNum}. Approved Brand Spokespersons: Authorized brand ambassadors and leadership: ${approvedPersons.join(', ')}.`);
+          ruleNum++;
+        }
+        if (prohibitedPersons.length > 0) {
+          rulesList.push(`${ruleNum}. Prohibited Person Names: Unauthorized person names: ${prohibitedPersons.join(', ')} must not be mentioned in marketing copy.`);
+          ruleNum++;
+        }
+      }
     }
 
     // 6. Legal Disclaimers & Absolute Claims
@@ -669,16 +717,30 @@ export default function GuidelinesDirectoryPage() {
       ruleNum++;
     }
 
-    // 7. Visual & Color Governance (Prefer Approved if both exist)
-    if (approvedColors.length > 0) {
-      const aNames = approvedColors.map(c => `${c.name} (${c.hex})`).join(', ');
-      rulesList.push(`${ruleNum}. Approved Brand Color Palette: ${aNames}.`);
+    // 7. Visual & Color Governance
+    const aNames = approvedColors.map(c => `${c.name} (${c.hex})`).join(', ');
+    const pNames = prohibitedColors.map(c => `${c.name} (${c.hex})`).join(', ');
+
+    if (colorMode === 'approved' && approvedColors.length > 0) {
+      rulesList.push(`${ruleNum}. Approved Brand Color Palette (Strict Allowlist): ${aNames}. All other colors outside this approved palette are strictly prohibited.`);
       ruleNum++;
-    }
-    if (prohibitedColors.length > 0) {
-      const pNames = prohibitedColors.map(c => `${c.name} (${c.hex})`).join(', ');
-      rulesList.push(`${ruleNum}. Prohibited Colors: No ${pNames} should be used in posters or creative assets.`);
+    } else if (colorMode === 'prohibited' && prohibitedColors.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Colors (Strict Blocklist): No ${pNames} should be used in posters or creative assets. All other colors outside this prohibited list are approved.`);
       ruleNum++;
+    } else {
+      if (approvedColors.length > 0 && prohibitedColors.length > 0) {
+        rulesList.push(`${ruleNum}. Color Governance (Preferred & Not Preferred): Preferred brand colors: ${aNames}. Prohibited colors: ${pNames}. All other unlisted colors are considered neutral.`);
+        ruleNum++;
+      } else {
+        if (approvedColors.length > 0) {
+          rulesList.push(`${ruleNum}. Approved Brand Color Palette: ${aNames}.`);
+          ruleNum++;
+        }
+        if (prohibitedColors.length > 0) {
+          rulesList.push(`${ruleNum}. Prohibited Colors: No ${pNames} should be used in posters or creative assets.`);
+          ruleNum++;
+        }
+      }
     }
 
     lines.push('\n2. ENFORCEABLE GOVERNANCE RULES');
@@ -930,6 +992,34 @@ export default function GuidelinesDirectoryPage() {
     setRequireTermsDisclaimer(textLower.includes('terms and conditions') || textLower.includes('terms disclaimer'));
     setProhibitGuarantees(textLower.includes('guarantee'));
 
+    // Auto-detect 3-Option Governance Modes: 'approved' | 'prohibited' | 'tiered'
+    if (textLower.includes('strict allowlist') || (parsedApproved.length > 0 && parsedProhibited.length === 0)) {
+      setColorMode('approved');
+    } else if (textLower.includes('strict blocklist') || (parsedProhibited.length > 0 && parsedApproved.length === 0)) {
+      setColorMode('prohibited');
+    } else {
+      setColorMode('tiered');
+    }
+
+    if (textLower.includes('strict allowlist') || (parsedApprovedCompanies.length > 0 && parsedProhibitedCompanies.length === 0)) {
+      setCompanyMode('approved');
+    } else if (textLower.includes('strict blocklist') || (parsedProhibitedCompanies.length > 0 && parsedApprovedCompanies.length === 0)) {
+      setCompanyMode('prohibited');
+    } else {
+      setCompanyMode('tiered');
+    }
+
+    if (textLower.includes('strict allowlist') || (parsedApprovedPersons.length > 0 && parsedProhibitedPersons.length === 0)) {
+      setPersonMode('approved');
+    } else if (textLower.includes('strict blocklist') || (parsedProhibitedPersons.length > 0 && parsedApprovedPersons.length === 0)) {
+      setPersonMode('prohibited');
+    } else {
+      setPersonMode('tiered');
+    }
+
+    setSymbolMode(textLower.includes('strict allowlist') ? 'approved' : 'prohibited');
+    setToneMode(parsedPreferredTones.length > 0 && parsedProhibitedTones.length > 0 ? 'tiered' : parsedPreferredTones.length > 0 ? 'approved' : 'prohibited');
+
     const hasStandardSection =
       textLower.includes('section 1') ||
       textLower.includes('wcag 2.1') ||
@@ -1071,6 +1161,11 @@ export default function GuidelinesDirectoryPage() {
         version: policyVersion.trim() || '1.0',
         description: policyDescription.trim(),
         include_standard_rules: includeStandardRules,
+        color_mode: colorMode,
+        company_mode: companyMode,
+        person_mode: personMode,
+        symbol_mode: symbolMode,
+        tone_mode: toneMode,
         preferred_tones: preferredTones,
         prohibited_tones: prohibitedTones,
         prohibited_symbols: prohibitedSymbols,
@@ -1655,292 +1750,470 @@ export default function GuidelinesDirectoryPage() {
 
                   {/* Color Governance Matrix */}
                   <div className="space-y-4 p-5 rounded-2xl bg-slate-50/70 border border-slate-200/80">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                           <Palette className="w-4 h-4 text-indigo-600" />
                           <span>Color Governance Matrix</span>
                         </h3>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Define approved brand hues and prohibited poster shades with real-time gradient simulation.
+                          Choose governance mode: Approved allowlist, Prohibited blocklist, or Preferred &amp; Not Preferred.
                         </p>
                       </div>
-                    </div>
 
-                    {/* Dynamic Color Gradient Preview Bar */}
-                    <div>
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-1.5">
-                        <span>Brand Color Spectrum &amp; Gradient Preview</span>
-                        <span className={`font-mono text-xs font-bold ${approvedColors.length > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
-                          {approvedColors.length} Approved Colors
-                        </span>
-                      </div>
-                      <div
-                        className={`h-11 w-full rounded-xl border transition-all flex items-center px-3 ${
-                          approvedColors.length === 0
-                            ? 'bg-slate-100/80 border-dashed border-slate-300 justify-center text-slate-400 text-xs font-medium'
-                            : 'border-slate-300/80 shadow-inner'
-                        }`}
-                        style={
-                          approvedColors.length > 1
-                            ? { background: `linear-gradient(to right, ${approvedColors.map(c => c.hex).join(', ')})` }
-                            : approvedColors.length === 1
-                            ? { background: approvedColors[0].hex }
-                            : undefined
-                        }
-                      >
-                        {approvedColors.length === 0 ? (
-                          <span className="flex items-center gap-1.5 text-slate-400 text-xs">
-                            <Palette className="w-3.5 h-3.5" />
-                            No approved brand palette specified in this guideline (0 colors)
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2 overflow-x-auto py-1">
-                            {approvedColors.map((col, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/90 text-slate-900 shadow-2xs backdrop-blur-xs border border-white/40 shrink-0"
-                              >
-                                {col.name ? `${col.name} (${col.hex})` : col.hex}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                      {/* 3-Mode Selector */}
+                      <div className="inline-flex items-center p-0.5 bg-slate-200/80 rounded-xl border border-slate-300/80 shrink-0 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setColorMode('approved')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            colorMode === 'approved' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>1) Approved Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setColorMode('prohibited')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            colorMode === 'prohibited' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <X className="w-3 h-3" />
+                          <span>2) Prohibited Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setColorMode('tiered')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            colorMode === 'tiered' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>3) Preferred &amp; Not Preferred</span>
+                        </button>
                       </div>
                     </div>
 
-                    {/* 2-Column Grid: Approved vs Prohibited */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                      {/* Approved Palette (Wanted) */}
-                      <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            Approved Brand Palette (Wanted)
+                    {/* Mode Notice Banner */}
+                    <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                      colorMode === 'approved'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        : colorMode === 'prohibited'
+                        ? 'bg-rose-50 text-rose-900 border-rose-200'
+                        : 'bg-slate-100 text-slate-800 border-slate-200'
+                    }`}>
+                      <span className="font-bold shrink-0">
+                        {colorMode === 'approved' ? '🟢 Option 1 (Strict Approved):' : colorMode === 'prohibited' ? '🔴 Option 2 (Strict Prohibited):' : '⚖️ Option 3 (Preferred & Not Preferred):'}
+                      </span>
+                      <span>
+                        {colorMode === 'approved'
+                          ? 'Only colors added to the Approved Palette below are permitted. Everything outside this list is strictly prohibited during visual audits.'
+                          : colorMode === 'prohibited'
+                          ? 'Only the colors added to the Prohibited list below are banned. All other colors outside this list are automatically considered approved.'
+                          : 'Preferred colors are approved, not-preferred colors are prohibited, and any color unlisted in both will be considered Neutral.'}
+                      </span>
+                    </div>
+
+                    {/* Dynamic Color Gradient Preview Bar (Visible when approved colors exist) */}
+                    {(colorMode === 'approved' || colorMode === 'tiered') && (
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-1.5">
+                          <span>Brand Color Spectrum &amp; Gradient Preview</span>
+                          <span className={`font-mono text-xs font-bold ${approvedColors.length > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
+                            {approvedColors.length} Approved Colors
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono">{approvedColors.length} colors</span>
                         </div>
-
-                        <div className="flex flex-wrap gap-2 min-h-[44px] items-center">
+                        <div
+                          className={`h-11 w-full rounded-xl border transition-all flex items-center px-3 ${
+                            approvedColors.length === 0
+                              ? 'bg-slate-100/80 border-dashed border-slate-300 justify-center text-slate-400 text-xs font-medium'
+                              : 'border-slate-300/80 shadow-inner'
+                          }`}
+                          style={
+                            approvedColors.length > 1
+                              ? { background: `linear-gradient(to right, ${approvedColors.map(c => c.hex).join(', ')})` }
+                              : approvedColors.length === 1
+                              ? { background: approvedColors[0].hex }
+                              : undefined
+                          }
+                        >
                           {approvedColors.length === 0 ? (
-                            <div className="w-full py-2.5 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/60 text-center">
-                              <p className="text-xs text-slate-400 italic">
-                                No approved brand colors defined. Add colors below if required.
-                              </p>
-                            </div>
+                            <span className="flex items-center gap-1.5 text-slate-400 text-xs">
+                              <Palette className="w-3.5 h-3.5" />
+                              No approved brand palette specified in this guideline (0 colors)
+                            </span>
                           ) : (
-                            approvedColors.map((color, index) => (
-                              <div
-                                key={index}
-                                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 shadow-2xs"
-                              >
+                            <div className="flex items-center gap-2 overflow-x-auto py-1">
+                              {approvedColors.map((col, idx) => (
                                 <span
-                                  className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
-                                  style={{ backgroundColor: color.hex }}
-                                />
-                                <span className="font-medium">{color.name}</span>
-                                <span className="font-mono text-[10px] text-slate-500">{color.hex}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeApprovedColor(index)}
-                                  className="text-slate-400 hover:text-rose-600 transition-colors ml-1"
+                                  key={idx}
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/90 text-slate-900 shadow-2xs backdrop-blur-xs border border-white/40 shrink-0"
                                 >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))
+                                  {col.name ? `${col.name} (${col.hex})` : col.hex}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
-
-                        {/* Add Approved Color */}
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                          <input
-                            type="color"
-                            value={newColorHex}
-                            onChange={e => setNewColorHex(e.target.value)}
-                            className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 p-0.5 bg-white shrink-0"
-                            title="Pick color"
-                          />
-                          <input
-                            type="text"
-                            value={newColorName}
-                            onChange={e => setNewColorName(e.target.value)}
-                            placeholder="Color label (e.g. Electric Violet, Teal)"
-                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-slate-900"
-                          />
-                          <button
-                            type="button"
-                            onClick={addApprovedColor}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Add
-                          </button>
-                        </div>
                       </div>
+                    )}
+
+                    {/* Conditional Grid: Approved vs Prohibited */}
+                    <div className={`grid gap-4 pt-1 ${colorMode === 'tiered' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                      {/* Approved Palette (Wanted) */}
+                      {(colorMode === 'approved' || colorMode === 'tiered') && (
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              {colorMode === 'approved' ? 'Approved Brand Palette (Strict Allowlist)' : 'Approved Brand Palette (Wanted)'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">{approvedColors.length} colors</span>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 min-h-[44px] items-center">
+                            {approvedColors.length === 0 ? (
+                              <div className="w-full py-2.5 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/60 text-center">
+                                <p className="text-xs text-slate-400 italic">
+                                  No approved brand colors defined. Add colors below.
+                                </p>
+                              </div>
+                            ) : (
+                              approvedColors.map((color, index) => (
+                                <div
+                                  key={index}
+                                  className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 shadow-2xs"
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
+                                    style={{ backgroundColor: color.hex }}
+                                  />
+                                  <span className="font-medium">{color.name}</span>
+                                  <span className="font-mono text-[10px] text-slate-500">{color.hex}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeApprovedColor(index)}
+                                    className="text-slate-400 hover:text-rose-600 transition-colors ml-1"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Add Approved Color */}
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                            <input
+                              type="color"
+                              value={newColorHex}
+                              onChange={e => setNewColorHex(e.target.value)}
+                              className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 p-0.5 bg-white shrink-0"
+                              title="Pick color"
+                            />
+                            <input
+                              type="text"
+                              value={newColorName}
+                              onChange={e => setNewColorName(e.target.value)}
+                              placeholder="Color label (e.g. Electric Violet, Teal)"
+                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-slate-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={addApprovedColor}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Add
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Prohibited Colors (Unwanted) */}
-                      <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-rose-500" />
-                            Prohibited Poster Colors (Unwanted)
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">{prohibitedColors.length} colors</span>
-                        </div>
+                      {(colorMode === 'prohibited' || colorMode === 'tiered') && (
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-rose-500" />
+                              {colorMode === 'prohibited' ? 'Prohibited Poster Colors (Strict Blocklist)' : 'Prohibited Poster Colors (Unwanted)'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">{prohibitedColors.length} colors</span>
+                          </div>
 
-                        <div className="flex flex-wrap gap-2 min-h-[44px] items-center">
-                          {prohibitedColors.length === 0 ? (
-                            <div className="w-full py-2.5 px-3 rounded-lg border border-dashed border-rose-200 bg-rose-50/30 text-center">
-                              <p className="text-xs text-rose-400 italic">
-                                No prohibited colors defined. Add colors to ban below.
-                              </p>
-                            </div>
-                          ) : (
-                            prohibitedColors.map((color, index) => (
-                              <div
-                                key={index}
-                                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50/60 text-xs text-rose-900 shadow-2xs"
-                              >
-                                <span
-                                  className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
-                                  style={{ backgroundColor: color.hex }}
-                                />
-                                <span className="font-medium">{color.name}</span>
-                                <span className="font-mono text-[10px] text-rose-600">{color.hex}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeProhibitedColor(index)}
-                                  className="text-rose-400 hover:text-rose-700 transition-colors ml-1"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
+                          <div className="flex flex-wrap gap-2 min-h-[44px] items-center">
+                            {prohibitedColors.length === 0 ? (
+                              <div className="w-full py-2.5 px-3 rounded-lg border border-dashed border-rose-200 bg-rose-50/30 text-center">
+                                <p className="text-xs text-rose-400 italic">
+                                  No prohibited colors defined. Add colors to ban below.
+                                </p>
                               </div>
-                            ))
-                          )}
-                        </div>
+                            ) : (
+                              prohibitedColors.map((color, index) => (
+                                <div
+                                  key={index}
+                                  className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50/60 text-xs text-rose-900 shadow-2xs"
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
+                                    style={{ backgroundColor: color.hex }}
+                                  />
+                                  <span className="font-medium">{color.name}</span>
+                                  <span className="font-mono text-[10px] text-rose-600">{color.hex}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProhibitedColor(index)}
+                                    className="text-rose-400 hover:text-rose-700 transition-colors ml-1"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))
+                            )}
+                          </div>
 
-                        {/* Add Prohibited Color */}
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                          <input
-                            type="color"
-                            value={newProhibitHex}
-                            onChange={e => setNewProhibitHex(e.target.value)}
-                            className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 p-0.5 bg-white shrink-0"
-                            title="Pick prohibited color"
-                          />
-                          <input
-                            type="text"
-                            value={newProhibitName}
-                            onChange={e => setNewProhibitName(e.target.value)}
-                            placeholder="Name (e.g. Neon Green, Red)"
-                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-slate-900"
-                          />
-                          <button
-                            type="button"
-                            onClick={addProhibitedColor}
-                            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Ban
-                          </button>
+                          {/* Add Prohibited Color */}
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                            <input
+                              type="color"
+                              value={newProhibitHex}
+                              onChange={e => setNewProhibitHex(e.target.value)}
+                              className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 p-0.5 bg-white shrink-0"
+                              title="Pick prohibited color"
+                            />
+                            <input
+                              type="text"
+                              value={newProhibitName}
+                              onChange={e => setNewProhibitName(e.target.value)}
+                              placeholder="Name (e.g. Neon Green, Red)"
+                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-slate-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={addProhibitedColor}
+                              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Ban
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
                   {/* 1. Brand Voice & Tone Governance Card */}
                   <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4 shadow-2xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                           <Volume2 className="w-4 h-4 text-indigo-600" />
                           <span>Brand Voice &amp; Tone Standards</span>
                         </h4>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Select approved core brand personality and strictly prohibited emotional tones.
+                          Choose governance mode: Approved allowlist, Prohibited blocklist, or Preferred &amp; Not Preferred.
                         </p>
+                      </div>
+
+                      {/* 3-Mode Selector */}
+                      <div className="inline-flex items-center p-0.5 bg-slate-200/80 rounded-xl border border-slate-300/80 shrink-0 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setToneMode('approved')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            toneMode === 'approved' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>1) Approved Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setToneMode('prohibited')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            toneMode === 'prohibited' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <X className="w-3 h-3" />
+                          <span>2) Prohibited Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setToneMode('tiered')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            toneMode === 'tiered' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>3) Preferred &amp; Not Preferred</span>
+                        </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    {/* Mode Notice Banner */}
+                    <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                      toneMode === 'approved'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        : toneMode === 'prohibited'
+                        ? 'bg-rose-50 text-rose-900 border-rose-200'
+                        : 'bg-slate-100 text-slate-800 border-slate-200'
+                    }`}>
+                      <span className="font-bold shrink-0">
+                        {toneMode === 'approved' ? '🟢 Option 1 (Strict Approved):' : toneMode === 'prohibited' ? '🔴 Option 2 (Strict Prohibited):' : '⚖️ Option 3 (Preferred & Not Preferred):'}
+                      </span>
+                      <span>
+                        {toneMode === 'approved'
+                          ? 'Only selected tones are permitted. All other tones outside this list are strictly prohibited in marketing copy.'
+                          : toneMode === 'prohibited'
+                          ? 'Only selected tones are banned. All other tones outside this list are automatically approved.'
+                          : 'Preferred tones are approved, prohibited tones are banned, and unlisted tones are considered Neutral.'}
+                      </span>
+                    </div>
+
+                    <div className={`grid gap-4 pt-1 ${toneMode === 'tiered' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                       {/* Preferred Brand Voice */}
-                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            Preferred Tone (Approved Voice)
-                          </span>
-                          <span className="text-[10px] text-emerald-700 font-mono font-bold">{preferredTones.length} selected</span>
+                      {(toneMode === 'approved' || toneMode === 'tiered') && (
+                        <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              {toneMode === 'approved' ? 'Approved Tone (Strict Allowlist)' : 'Preferred Tone (Approved Voice)'}
+                            </span>
+                            <span className="text-[10px] text-emerald-700 font-mono font-bold">{preferredTones.length} selected</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {STANDARD_PREFERRED_TONES.map(tone => {
+                              const isSelected = preferredTones.includes(tone);
+                              return (
+                                <button
+                                  key={tone}
+                                  type="button"
+                                  onClick={() => togglePreferredTone(tone)}
+                                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                                    isSelected
+                                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                  {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3 opacity-40" />}
+                                  <span>{tone}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {STANDARD_PREFERRED_TONES.map(tone => {
-                            const isSelected = preferredTones.includes(tone);
-                            return (
-                              <button
-                                key={tone}
-                                type="button"
-                                onClick={() => togglePreferredTone(tone)}
-                                className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
-                                  isSelected
-                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                                }`}
-                              >
-                                {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3 opacity-40" />}
-                                <span>{tone}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      )}
 
                       {/* Prohibited Tones */}
-                      <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-rose-500" />
-                            Prohibited Tones (Unwanted Voice)
-                          </span>
-                          <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedTones.length} banned</span>
+                      {(toneMode === 'prohibited' || toneMode === 'tiered') && (
+                        <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-rose-500" />
+                              {toneMode === 'prohibited' ? 'Prohibited Tones (Strict Blocklist)' : 'Prohibited Tones (Unwanted Voice)'}
+                            </span>
+                            <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedTones.length} banned</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {STANDARD_PROHIBITED_TONES.map(tone => {
+                              const isSelected = prohibitedTones.includes(tone);
+                              return (
+                                <button
+                                  key={tone}
+                                  type="button"
+                                  onClick={() => toggleProhibitedTone(tone)}
+                                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                                    isSelected
+                                      ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                  {isSelected ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3 opacity-40" />}
+                                  <span>{tone}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {STANDARD_PROHIBITED_TONES.map(tone => {
-                            const isSelected = prohibitedTones.includes(tone);
-                            return (
-                              <button
-                                key={tone}
-                                type="button"
-                                onClick={() => toggleProhibitedTone(tone)}
-                                className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
-                                  isSelected
-                                    ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                                }`}
-                              >
-                                {isSelected ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3 opacity-40" />}
-                                <span>{tone}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
                   {/* 2. Prohibited Symbols & Characters Card */}
                   <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-3.5 shadow-2xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                           <Hash className="w-4 h-4 text-indigo-600" />
-                          <span>Prohibited Symbols &amp; Punctuation</span>
+                          <span>Symbols &amp; Punctuation Governance</span>
                         </h4>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Select standard punctuation marks, symbols, or emojis to deterministically ban from marketing copy.
+                          Choose governance mode: Approved allowlist, Prohibited blocklist, or Preferred &amp; Not Preferred.
                         </p>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 font-bold">{prohibitedSymbols.length} banned symbols</span>
+
+                      {/* 3-Mode Selector */}
+                      <div className="inline-flex items-center p-0.5 bg-slate-200/80 rounded-xl border border-slate-300/80 shrink-0 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setSymbolMode('approved')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            symbolMode === 'approved' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>1) Approved Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSymbolMode('prohibited')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            symbolMode === 'prohibited' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <X className="w-3 h-3" />
+                          <span>2) Prohibited Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSymbolMode('tiered')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            symbolMode === 'tiered' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>3) Preferred &amp; Not Preferred</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mode Notice Banner */}
+                    <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                      symbolMode === 'approved'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        : symbolMode === 'prohibited'
+                        ? 'bg-rose-50 text-rose-900 border-rose-200'
+                        : 'bg-slate-100 text-slate-800 border-slate-200'
+                    }`}>
+                      <span className="font-bold shrink-0">
+                        {symbolMode === 'approved' ? '🟢 Option 1 (Strict Approved):' : symbolMode === 'prohibited' ? '🔴 Option 2 (Strict Prohibited):' : '⚖️ Option 3 (Preferred & Not Preferred):'}
+                      </span>
+                      <span>
+                        {symbolMode === 'approved'
+                          ? 'Only selected symbols/punctuation below are permitted. All other symbols outside this list are strictly prohibited in marketing copy.'
+                          : symbolMode === 'prohibited'
+                          ? 'Only selected symbols below are banned. All other standard punctuation outside this list is permitted.'
+                          : 'Selected symbols are prohibited, and unlisted standard punctuation marks are considered Neutral.'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                      <span>{symbolMode === 'approved' ? 'Permitted Symbols (Allowlist):' : 'Prohibited Symbols (Blocklist):'}</span>
+                      <span className="text-[10px] font-mono font-bold text-slate-400">
+                        {prohibitedSymbols.length} {symbolMode === 'approved' ? 'permitted' : 'banned'}
+                      </span>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
@@ -1953,12 +2226,18 @@ export default function GuidelinesDirectoryPage() {
                             onClick={() => toggleProhibitedSymbol(item.symbol)}
                             className={`p-2.5 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
                               isBanned
-                                ? 'bg-rose-50 border-rose-300 text-rose-900 shadow-2xs ring-1 ring-rose-200'
+                                ? symbolMode === 'approved'
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs ring-1 ring-emerald-200'
+                                  : 'bg-rose-50 border-rose-300 text-rose-900 shadow-2xs ring-1 ring-rose-200'
                                 : 'bg-slate-50/60 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                             }`}
                           >
                             <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
-                              isBanned ? 'bg-rose-600 text-white' : 'bg-white border border-slate-200 text-slate-700'
+                              isBanned
+                                ? symbolMode === 'approved'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-rose-600 text-white'
+                                : 'bg-white border border-slate-200 text-slate-700'
                             }`}>
                               {item.symbol === 'Emoji' ? '😊' : item.symbol}
                             </span>
@@ -1983,300 +2262,418 @@ export default function GuidelinesDirectoryPage() {
                             addCustomSymbol();
                           }
                         }}
-                        placeholder="Add custom prohibited character or symbol (e.g. '~', '^', '&') and press Enter"
+                        placeholder="Add custom character or symbol (e.g. '~', '^', '&') and press Enter"
                         className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 font-mono"
                       />
                       <button
                         type="button"
                         onClick={addCustomSymbol}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                        className={`px-3 py-1.5 rounded-xl text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0 ${
+                          symbolMode === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900 hover:bg-slate-800'
+                        }`}
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        Ban Symbol
+                        {symbolMode === 'approved' ? 'Allow Symbol' : 'Ban Symbol'}
                       </button>
                     </div>
                   </div>
 
                   {/* 3. Company & Brand Governance Matrix */}
                   <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4 shadow-2xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                           <Building2 className="w-4 h-4 text-indigo-600" />
                           <span>Company &amp; Brand Governance Matrix</span>
                         </h4>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Define approved partners &amp; collaborations and prohibited competitor brands. When approved partners are specified, only authorized brands may be cited.
+                          Choose governance mode: Approved allowlist, Prohibited blocklist, or Preferred &amp; Not Preferred.
                         </p>
+                      </div>
+
+                      {/* 3-Mode Selector */}
+                      <div className="inline-flex items-center p-0.5 bg-slate-200/80 rounded-xl border border-slate-300/80 shrink-0 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setCompanyMode('approved')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            companyMode === 'approved' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>1) Approved Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCompanyMode('prohibited')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            companyMode === 'prohibited' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <X className="w-3 h-3" />
+                          <span>2) Prohibited Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCompanyMode('tiered')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            companyMode === 'tiered' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>3) Preferred &amp; Not Preferred</span>
+                        </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    {/* Mode Notice Banner */}
+                    <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                      companyMode === 'approved'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        : companyMode === 'prohibited'
+                        ? 'bg-rose-50 text-rose-900 border-rose-200'
+                        : 'bg-slate-100 text-slate-800 border-slate-200'
+                    }`}>
+                      <span className="font-bold shrink-0">
+                        {companyMode === 'approved' ? '🟢 Option 1 (Strict Approved):' : companyMode === 'prohibited' ? '🔴 Option 2 (Strict Prohibited):' : '⚖️ Option 3 (Preferred & Not Preferred):'}
+                      </span>
+                      <span>
+                        {companyMode === 'approved'
+                          ? 'Only authorized brand partners below may be referenced. All other external companies or competitor mentions are strictly prohibited.'
+                          : companyMode === 'prohibited'
+                          ? 'Only the competitor brands listed below are banned. All other external company mentions outside this list are approved.'
+                          : 'Approved partners are allowed, banned competitors are prohibited, and unlisted companies are considered Neutral.'}
+                      </span>
+                    </div>
+
+                    <div className={`grid gap-4 pt-1 ${companyMode === 'tiered' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                       {/* Approved Brand Partners & Collaborations */}
-                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            Approved Partners &amp; Collaborations (Allowed)
-                          </span>
-                          <span className="text-[10px] text-emerald-700 font-mono font-bold">{approvedCompanies.length} approved</span>
-                        </div>
+                      {(companyMode === 'approved' || companyMode === 'tiered') && (
+                        <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              {companyMode === 'approved' ? 'Approved Partners & Collaborations (Strict Allowlist)' : 'Approved Partners & Collaborations (Allowed)'}
+                            </span>
+                            <span className="text-[10px] text-emerald-700 font-mono font-bold">{approvedCompanies.length} approved</span>
+                          </div>
 
-                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
-                          {approvedCompanies.length === 0 ? (
-                            <p className="text-xs text-slate-400 italic py-1">No approved partners defined. All external brands default to neutral or restricted.</p>
-                          ) : (
-                            approvedCompanies.map(c => (
-                              <span
-                                key={c}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-2xs"
-                              >
-                                <Building2 className="w-3 h-3 text-emerald-600" />
-                                {c}
-                                <button
-                                  type="button"
-                                  onClick={() => removeApprovedCompany(c)}
-                                  className="text-emerald-500 hover:text-emerald-800 transition-colors ml-0.5"
-                                  title="Remove partner"
+                          <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                            {approvedCompanies.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic py-1">No approved partners defined.</p>
+                            ) : (
+                              approvedCompanies.map(c => (
+                                <span
+                                  key={c}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-2xs"
                                 >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </span>
-                            ))
-                          )}
-                        </div>
+                                  <Building2 className="w-3 h-3 text-emerald-600" />
+                                  {c}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeApprovedCompany(c)}
+                                    className="text-emerald-500 hover:text-emerald-800 transition-colors ml-0.5"
+                                    title="Remove partner"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
 
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                          <input
-                            type="text"
-                            value={newApprovedCompany}
-                            onChange={e => setNewApprovedCompany(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                addApprovedCompany();
-                              }
-                            }}
-                            placeholder="Partner or authorized brand (e.g. Acme Corp, Nvidia)"
-                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
-                          />
-                          <button
-                            type="button"
-                            onClick={addApprovedCompany}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Add
-                          </button>
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                            <input
+                              type="text"
+                              value={newApprovedCompany}
+                              onChange={e => setNewApprovedCompany(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addApprovedCompany();
+                                }
+                              }}
+                              placeholder="Partner or authorized brand (e.g. Acme Corp, Nvidia)"
+                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={addApprovedCompany}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Add
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Prohibited Competitor Brands */}
-                      <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-rose-500" />
-                            Prohibited Competitor Brands (Banned)
-                          </span>
-                          <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedCompanies.length} banned</span>
-                        </div>
+                      {(companyMode === 'prohibited' || companyMode === 'tiered') && (
+                        <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-rose-500" />
+                              {companyMode === 'prohibited' ? 'Prohibited Competitor Brands (Strict Blocklist)' : 'Prohibited Competitor Brands (Banned)'}
+                            </span>
+                            <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedCompanies.length} banned</span>
+                          </div>
 
-                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
-                          {prohibitedCompanies.length === 0 ? (
-                            <p className="text-xs text-slate-400 italic py-1">No competitor brands explicitly prohibited.</p>
-                          ) : (
-                            prohibitedCompanies.map(c => (
-                              <span
-                                key={c}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold shadow-2xs"
-                              >
-                                <Building2 className="w-3 h-3 text-rose-600" />
-                                {c}
-                                <button
-                                  type="button"
-                                  onClick={() => removeProhibitedCompany(c)}
-                                  className="text-rose-500 hover:text-rose-800 transition-colors ml-0.5"
-                                  title="Remove banned competitor"
+                          <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                            {prohibitedCompanies.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic py-1">No competitor brands explicitly prohibited.</p>
+                            ) : (
+                              prohibitedCompanies.map(c => (
+                                <span
+                                  key={c}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold shadow-2xs"
                                 >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </span>
-                            ))
-                          )}
-                        </div>
+                                  <Building2 className="w-3 h-3 text-rose-600" />
+                                  {c}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProhibitedCompany(c)}
+                                    className="text-rose-500 hover:text-rose-800 transition-colors ml-0.5"
+                                    title="Remove banned competitor"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
 
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                          <input
-                            type="text"
-                            value={newProhibitedCompany}
-                            onChange={e => setNewProhibitedCompany(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                addProhibitedCompany();
-                              }
-                            }}
-                            placeholder="Competitor or brand to ban (e.g. RivalTech, Brand X)"
-                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
-                          />
-                          <button
-                            type="button"
-                            onClick={addProhibitedCompany}
-                            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Ban
-                          </button>
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                            <input
+                              type="text"
+                              value={newProhibitedCompany}
+                              onChange={e => setNewProhibitedCompany(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addProhibitedCompany();
+                                }
+                              }}
+                              placeholder="Competitor or brand to ban (e.g. RivalTech, Brand X)"
+                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={addProhibitedCompany}
+                              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Ban
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
                   {/* 4. Entity & Spokesperson Governance Matrix */}
                   <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4 shadow-2xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                           <Users className="w-4 h-4 text-indigo-600" />
                           <span>Entity &amp; Spokesperson Governance Matrix</span>
                         </h4>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Define approved brand ambassadors or leadership names, and ban unauthorized person name drops.
+                          Choose governance mode: Approved allowlist, Prohibited blocklist, or Preferred &amp; Not Preferred.
                         </p>
+                      </div>
+
+                      {/* 3-Mode Selector */}
+                      <div className="inline-flex items-center p-0.5 bg-slate-200/80 rounded-xl border border-slate-300/80 shrink-0 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setPersonMode('approved')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            personMode === 'approved' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>1) Approved Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPersonMode('prohibited')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            personMode === 'prohibited' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <X className="w-3 h-3" />
+                          <span>2) Prohibited Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPersonMode('tiered')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            personMode === 'tiered' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>3) Preferred &amp; Not Preferred</span>
+                        </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    {/* Mode Notice Banner */}
+                    <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                      personMode === 'approved'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                        : personMode === 'prohibited'
+                        ? 'bg-rose-50 text-rose-900 border-rose-200'
+                        : 'bg-slate-100 text-slate-800 border-slate-200'
+                    }`}>
+                      <span className="font-bold shrink-0">
+                        {personMode === 'approved' ? '🟢 Option 1 (Strict Approved):' : personMode === 'prohibited' ? '🔴 Option 2 (Strict Prohibited):' : '⚖️ Option 3 (Preferred & Not Preferred):'}
+                      </span>
+                      <span>
+                        {personMode === 'approved'
+                          ? 'Only authorized brand ambassadors below are permitted. All other individual person names are strictly prohibited in marketing creatives.'
+                          : personMode === 'prohibited'
+                          ? 'Only the person names listed below are banned. All other person names outside this list are approved.'
+                          : 'Authorized ambassadors are approved, banned names are prohibited, and unlisted entities are considered Neutral.'}
+                      </span>
+                    </div>
+
+                    <div className={`grid gap-4 pt-1 ${personMode === 'tiered' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                       {/* Approved Brand Ambassadors & Leadership */}
-                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            Approved Brand Ambassadors (Allowed)
-                          </span>
-                          <span className="text-[10px] text-emerald-700 font-mono font-bold">{approvedPersons.length} approved</span>
-                        </div>
+                      {(personMode === 'approved' || personMode === 'tiered') && (
+                        <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              {personMode === 'approved' ? 'Approved Brand Ambassadors (Strict Allowlist)' : 'Approved Brand Ambassadors (Allowed)'}
+                            </span>
+                            <span className="text-[10px] text-emerald-700 font-mono font-bold">{approvedPersons.length} approved</span>
+                          </div>
 
-                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
-                          {approvedPersons.length === 0 ? (
-                            <p className="text-xs text-slate-400 italic py-1">No approved ambassadors defined.</p>
-                          ) : (
-                            approvedPersons.map(p => (
-                              <span
-                                key={p}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-2xs"
-                              >
-                                <Users className="w-3 h-3 text-emerald-600" />
-                                {p}
-                                <button
-                                  type="button"
-                                  onClick={() => removeApprovedPerson(p)}
-                                  className="text-emerald-500 hover:text-emerald-800 transition-colors ml-0.5"
-                                  title="Remove ambassador"
+                          <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                            {approvedPersons.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic py-1">No approved ambassadors defined.</p>
+                            ) : (
+                              approvedPersons.map(p => (
+                                <span
+                                  key={p}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-2xs"
                                 >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </span>
-                            ))
-                          )}
-                        </div>
+                                  <Users className="w-3 h-3 text-emerald-600" />
+                                  {p}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeApprovedPerson(p)}
+                                    className="text-emerald-500 hover:text-emerald-800 transition-colors ml-0.5"
+                                    title="Remove ambassador"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
 
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                          <input
-                            type="text"
-                            value={newApprovedPerson}
-                            onChange={e => setNewApprovedPerson(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                addApprovedPerson();
-                              }
-                            }}
-                            placeholder="Approved spokesperson (e.g. Hritik Roshan, CEO Name)"
-                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
-                          />
-                          <button
-                            type="button"
-                            onClick={addApprovedPerson}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Add
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Prohibited Person Names */}
-                      <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-rose-500" />
-                            Prohibited Person Names (Banned)
-                          </span>
-                          <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedPersons.length} banned</span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {!prohibitedPersons.includes('All unapproved individual person names') && (
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                            <input
+                              type="text"
+                              value={newApprovedPerson}
+                              onChange={e => setNewApprovedPerson(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addApprovedPerson();
+                                }
+                              }}
+                              placeholder="Approved spokesperson (e.g. Hritik Roshan, CEO Name)"
+                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
+                            />
                             <button
                               type="button"
-                              onClick={() => setProhibitedPersons(prev => [...prev, 'All unapproved individual person names'])}
-                              className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors inline-flex items-center gap-0.5"
+                              onClick={addApprovedPerson}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
                             >
-                              <Plus className="w-2.5 h-2.5" />
-                              + Ban All Unapproved Names
+                              <Plus className="w-3 h-3" />
+                              Add
                             </button>
-                          )}
+                          </div>
                         </div>
+                      )}
 
-                        <div className="flex flex-wrap gap-1.5 min-h-[36px]">
-                          {prohibitedPersons.length === 0 ? (
-                            <p className="text-xs text-slate-400 italic py-1">No individual person names banned.</p>
-                          ) : (
-                            prohibitedPersons.map(p => (
-                              <span
-                                key={p}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold shadow-2xs"
+                      {/* Prohibited Person Names */}
+                      {(personMode === 'prohibited' || personMode === 'tiered') && (
+                        <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-rose-500" />
+                              {personMode === 'prohibited' ? 'Prohibited Person Names (Strict Blocklist)' : 'Prohibited Person Names (Banned)'}
+                            </span>
+                            <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedPersons.length} banned</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {!prohibitedPersons.includes('All unapproved individual person names') && (
+                              <button
+                                type="button"
+                                onClick={() => setProhibitedPersons(prev => [...prev, 'All unapproved individual person names'])}
+                                className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors inline-flex items-center gap-0.5"
                               >
-                                <Users className="w-3 h-3 text-rose-600" />
-                                {p}
-                                <button
-                                  type="button"
-                                  onClick={() => removeProhibitedPerson(p)}
-                                  className="text-rose-500 hover:text-rose-800 transition-colors ml-0.5"
-                                  title="Remove banned person"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </span>
-                            ))
-                          )}
-                        </div>
+                                <Plus className="w-2.5 h-2.5" />
+                                + Ban All Unapproved Names
+                              </button>
+                            )}
+                          </div>
 
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                          <input
-                            type="text"
-                            value={newProhibitedPerson}
-                            onChange={e => setNewProhibitedPerson(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                addProhibitedPerson();
-                              }
-                            }}
-                            placeholder="Person name to ban (or 'All unapproved names')"
-                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
-                          />
-                          <button
-                            type="button"
-                            onClick={addProhibitedPerson}
-                            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Ban
-                          </button>
+                          <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                            {prohibitedPersons.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic py-1">No individual person names banned.</p>
+                            ) : (
+                              prohibitedPersons.map(p => (
+                                <span
+                                  key={p}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold shadow-2xs"
+                                >
+                                  <Users className="w-3 h-3 text-rose-600" />
+                                  {p}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProhibitedPerson(p)}
+                                    className="text-rose-500 hover:text-rose-800 transition-colors ml-0.5"
+                                    title="Remove banned person"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                            <input
+                              type="text"
+                              value={newProhibitedPerson}
+                              onChange={e => setNewProhibitedPerson(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addProhibitedPerson();
+                                }
+                              }}
+                              placeholder="Person name to ban (or 'All unapproved names')"
+                              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:ring-1 focus:ring-slate-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={addProhibitedPerson}
+                              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Ban
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
