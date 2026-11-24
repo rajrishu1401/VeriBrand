@@ -112,14 +112,24 @@ class GuidelineCreateRequest(BaseModel):
     version: str = "1.0"
     description: Optional[str] = None
     include_standard_rules: bool = True
-    prohibited_words: List[str] = []
-    allowed_ambassadors: List[str] = []
+    prohibited_symbols: List[str] = []
+    preferred_tones: List[str] = []
+    prohibited_tones: List[str] = []
+    prohibit_competitor_mentions: bool = False
+    blocked_competitors: List[str] = []
     prohibit_person_names: bool = False
+    whitelisted_entities: List[str] = []
+    prohibited_words: List[str] = []
+    require_terms_disclaimer: bool = False
+    prohibit_guarantees: bool = False
     prohibited_colors: List[str] = []
     approved_palette: List[str] = []
+    # Legacy backward-compatibility fields
+    allowed_ambassadors: List[str] = []
     prohibit_exclamations: bool = False
     prohibit_questions: bool = False
     prohibit_100_percent: bool = False
+    prohibit_competitor_claims: bool = False
     custom_rules_text: Optional[str] = None
     raw_content: Optional[str] = None
 
@@ -716,32 +726,59 @@ async def create_guideline_endpoint(req: GuidelineCreateRequest):
                 rules_text_list.append(f"{rule_num}. Promotional offers regarding trials or pricing must carry 'Terms and conditions apply'.")
                 rule_num += 1
 
-            # Content & Tone Rules
-            if req.prohibit_100_percent:
-                rules_text_list.append(f"{rule_num}. 100% should not be written.")
+            # Tone & Voice Standards
+            if req.preferred_tones:
+                rules_text_list.append(f"{rule_num}. Brand Voice & Tone: Approved primary voice must remain {', '.join(req.preferred_tones)}.")
                 rule_num += 1
 
-            if req.prohibit_person_names:
-                rules_text_list.append(f"{rule_num}. Name of any person should not be mentioned.")
+            if req.prohibited_tones:
+                rules_text_list.append(f"{rule_num}. Prohibited Tones: Marketing copy must not use {', '.join(req.prohibited_tones)} tone.")
                 rule_num += 1
 
-            if req.allowed_ambassadors:
-                ambassador_str = ", ".join(req.allowed_ambassadors)
-                rules_text_list.append(f"{rule_num}. Name of Our brand ambassador can be mentioned, which is {ambassador_str}.")
+            # Symbols & Punctuation Constraints
+            symbols = list(req.prohibited_symbols)
+            if req.prohibit_exclamations and '!' not in symbols:
+                symbols.append('!')
+            if req.prohibit_questions and '?' not in symbols:
+                symbols.append('?')
+            if req.prohibit_100_percent and '%' not in symbols:
+                symbols.append('%')
+
+            if symbols:
+                sym_str = ", ".join(f"'{s}'" if s != 'Emoji' else 'Emojis' for s in symbols)
+                rules_text_list.append(f"{rule_num}. Prohibited Symbols & Punctuation: Use of {sym_str} is strictly prohibited in marketing copy.")
                 rule_num += 1
 
-            if req.prohibit_questions:
-                rules_text_list.append(f"{rule_num}. Question should not be added in marketing copy.")
-                rule_num += 1
+            # Prohibited Vocabulary
+            words = list(req.prohibited_words)
+            if req.prohibit_100_percent and '100%' not in words:
+                words.append('100%')
 
-            if req.prohibit_exclamations:
-                rules_text_list.append(f"{rule_num}. Use of exclamation is prohibited.")
-                rule_num += 1
-
-            for w in req.prohibited_words:
+            for w in words:
                 if w.strip():
                     rules_text_list.append(f"{rule_num}. Prohibited term: '{w.strip()}' must not appear in marketing claims.")
                     rule_num += 1
+
+            # Company, Competitor & Entity Mentions
+            if req.prohibit_competitor_mentions or req.prohibit_competitor_claims:
+                comp_str = f" (including {', '.join(req.blocked_competitors)})" if req.blocked_competitors else ""
+                rules_text_list.append(f"{rule_num}. Company & Competitor Mentions: Direct mentions of other companies or competitor brands{comp_str} are strictly prohibited.")
+                rule_num += 1
+
+            if req.prohibit_person_names:
+                entities = req.whitelisted_entities or req.allowed_ambassadors
+                entity_str = f", except verified brand spokespersons: {', '.join(entities)}" if entities else ""
+                rules_text_list.append(f"{rule_num}. Entity Governance: Names of individuals or unauthorized celebrities must not be mentioned in marketing copy{entity_str}.")
+                rule_num += 1
+
+            # Legal Disclaimers & Guarantees
+            if req.prohibit_guarantees:
+                rules_text_list.append(f"{rule_num}. Absolute Claims: Unsubstantiated guarantees and absolute promises are strictly prohibited.")
+                rule_num += 1
+
+            if req.require_terms_disclaimer:
+                rules_text_list.append(f"{rule_num}. Legal Disclaimers: All promotional claims must include mandatory 'Terms and conditions apply' disclaimer.")
+                rule_num += 1
 
             # Visual & Color Rules
             if req.prohibited_colors:

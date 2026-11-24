@@ -280,6 +280,36 @@ class DeterministicEngine:
             )
             rules_found += 1
 
+        # Additional Prohibited Symbols & Characters
+        if any(w in text_lower for w in ["prohibit", "ban", "avoid", "no "]):
+            if any(s in text_lower for s in ["currency", "$", "price symbol"]):
+                self.add_custom_rule(
+                    category="formatting",
+                    pattern=r"[\$€£₹]",
+                    severity="high",
+                    reason="Currency and pricing symbols are prohibited per brand guidelines",
+                    citation="Guideline Rule: Currency Symbols Prohibited"
+                )
+                rules_found += 1
+            if any(s in text_lower for s in ["hashtag", "#"]):
+                self.add_custom_rule(
+                    category="formatting",
+                    pattern=r"#\w+",
+                    severity="medium",
+                    reason="Hashtags are prohibited per brand guidelines",
+                    citation="Guideline Rule: Hashtags Prohibited"
+                )
+                rules_found += 1
+            if any(s in text_lower for s in ["asterisk", "*"]):
+                self.add_custom_rule(
+                    category="formatting",
+                    pattern=r"\*",
+                    severity="medium",
+                    reason="Asterisks/fine-print footnotes are prohibited per brand guidelines",
+                    citation="Guideline Rule: Asterisks Prohibited"
+                )
+                rules_found += 1
+
         # Numbered rules line count fallback
         numbered_lines = re.findall(r"^\s*\d+[\.\)]\s*.+", guideline_text, re.MULTILINE)
         if len(numbered_lines) > rules_found:

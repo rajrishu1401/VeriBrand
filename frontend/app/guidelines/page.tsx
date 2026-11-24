@@ -38,6 +38,11 @@ import {
   Edit3,
   Wand2,
   RefreshCw,
+  Volume2,
+  Building2,
+  Users,
+  Hash,
+  MessageSquare,
 } from 'lucide-react';
 
 interface ExtractedRule {
@@ -179,6 +184,41 @@ function parseGuidelineTextClient(text: string): ExtractedRule[] {
 
   return rules.length > 0 ? rules : DEFAULT_TECHCORP_RULES;
 }
+
+// ─── Standard Enterprise Governance Dimensions ─────────────────────────────
+export const STANDARD_SYMBOLS = [
+  { symbol: '!', label: 'Exclamation (!)', desc: 'Prevents shouty, over-hyped marketing claims' },
+  { symbol: '?', label: 'Question (?)', desc: 'Bans rhetorical or uncertain interrogative copy' },
+  { symbol: '%', label: 'Percent (%)', desc: 'Restricts statistical/absolute percentage claims' },
+  { symbol: '$', label: 'Currency ($)', desc: 'Restricts unapproved price points & financial claims' },
+  { symbol: '*', label: 'Asterisk (*)', desc: 'Disallows fine-print footnote disclaimers' },
+  { symbol: '#', label: 'Hashtag (#)', desc: 'Prevents social media tags in corporate copy' },
+  { symbol: '@', label: 'Mention (@)', desc: 'Blocks social handles and tag spamming' },
+  { symbol: 'Emoji', label: 'Emojis', desc: 'Maintains formal corporate communication standards' },
+];
+
+export const STANDARD_PREFERRED_TONES = [
+  'Professional & Authoritative',
+  'Objective & Data-Backed',
+  'Empathetic & Customer-Centric',
+  'Clear & Transparent',
+  'Inspiring & Purpose-Driven',
+  'Calm & Direct',
+];
+
+export const STANDARD_PROHIBITED_TONES = [
+  'Aggressive / High-Pressure',
+  'Uncertain / Questioning',
+  'Casual / Slang',
+  'Sensationalist / Clickbait',
+  'Sarcastic / Humorous',
+  'Informal / Colloquial',
+  'Unsubstantiated / Superlative',
+];
+
+export const SUGGESTED_BANNED_WORDS = [
+  '100%', 'guarantee', 'guaranteed', 'risk-free', 'miracle', 'best in the world', 'cheapest', 'unlimited'
+];
 
 // ─── Standard Enterprise Color Dictionary & Hex Resolver ────────────────────
 const STANDARD_COLOR_MAP: Record<string, string> = {
@@ -341,25 +381,63 @@ export default function GuidelinesDirectoryPage() {
   const [newProhibitHex, setNewProhibitHex] = useState('#EF4444');
   const [newProhibitName, setNewProhibitName] = useState('');
 
-  // Standards & Claims Governance
-  const [includeStandardRules, setIncludeStandardRules] = useState(true);
-  const [prohibit100Percent, setProhibit100Percent] = useState(true);
-  const [prohibitGuarantees, setProhibitGuarantees] = useState(true);
-  const [prohibitCompetitorClaims, setProhibitCompetitorClaims] = useState(true);
-  const [requireTermsDisclaimer, setRequireTermsDisclaimer] = useState(true);
-  const [prohibitPersonNames, setProhibitPersonNames] = useState(false);
-  const [allowedAmbassadors, setAllowedAmbassadors] = useState('');
-  const [prohibitQuestions, setProhibitQuestions] = useState(false);
-  const [prohibitExclamations, setProhibitExclamations] = useState(false);
+  // Standards Baseline
+  const [includeStandardRules, setIncludeStandardRules] = useState(false);
 
-  // Banned Terms & Words Tags
-  const [bannedWords, setBannedWords] = useState<string[]>([
-    'guarantee', 'guaranteed', '100% free', 'best in the world', 'miracle'
+  // 1. Brand Voice & Tone Governance
+  const [preferredTones, setPreferredTones] = useState<string[]>([
+    'Professional & Authoritative',
+    'Objective & Data-Backed',
   ]);
+  const [prohibitedTones, setProhibitedTones] = useState<string[]>([]);
+
+  // 2. Prohibited Symbols & Punctuation
+  const [prohibitedSymbols, setProhibitedSymbols] = useState<string[]>([]);
+  const [customSymbolInput, setCustomSymbolInput] = useState('');
+
+  // 3. Company, Competitor & Entity Governance
+  const [prohibitCompetitorMentions, setProhibitCompetitorMentions] = useState(false);
+  const [blockedCompetitors, setBlockedCompetitors] = useState('');
+  const [prohibitPersonNames, setProhibitPersonNames] = useState(false);
+  const [whitelistedEntities, setWhitelistedEntities] = useState('');
+
+  // 4. Prohibited Vocabulary & Banned Words
+  const [bannedWords, setBannedWords] = useState<string[]>([]);
   const [newWord, setNewWord] = useState('');
+
+  // 5. Legal Disclaimers & Absolute Claims
+  const [requireTermsDisclaimer, setRequireTermsDisclaimer] = useState(false);
+  const [prohibitGuarantees, setProhibitGuarantees] = useState(false);
 
   // Custom Raw Document Text
   const [rawDocumentContent, setRawDocumentContent] = useState('');
+
+  // Helper toggle handlers for standard chips
+  const togglePreferredTone = (tone: string) => {
+    setPreferredTones(prev =>
+      prev.includes(tone) ? prev.filter(t => t !== tone) : [...prev, tone]
+    );
+  };
+
+  const toggleProhibitedTone = (tone: string) => {
+    setProhibitedTones(prev =>
+      prev.includes(tone) ? prev.filter(t => t !== tone) : [...prev, tone]
+    );
+  };
+
+  const toggleProhibitedSymbol = (symbol: string) => {
+    setProhibitedSymbols(prev =>
+      prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]
+    );
+  };
+
+  const addCustomSymbol = () => {
+    const sym = customSymbolInput.trim();
+    if (sym && !prohibitedSymbols.includes(sym)) {
+      setProhibitedSymbols(prev => [...prev, sym]);
+      setCustomSymbolInput('');
+    }
+  };
 
   // 1. Fetch guideline list
   useEffect(() => {
@@ -486,47 +564,54 @@ export default function GuidelinesDirectoryPage() {
     if (includeStandardRules) {
       rulesList.push(`${ruleNum}. Maintain minimum ISO/IEC 40500 WCAG 2.1 Level AA text contrast ratio (4.5:1 minimum).`);
       ruleNum++;
-      if (prohibitGuarantees) {
-        rulesList.push(`${ruleNum}. Avoid absolute guarantees ('guarantee', 'guaranteed') and unverifiable claims.`);
-        ruleNum++;
-      }
-      if (prohibitCompetitorClaims) {
-        rulesList.push(`${ruleNum}. Never mention competitors by name directly without documented benchmark citations and legal clearance.`);
-        ruleNum++;
-      }
-      if (requireTermsDisclaimer) {
-        rulesList.push(`${ruleNum}. Promotional offers regarding free tiers, pilots, or pricing must carry: "Terms and conditions apply."`);
-        ruleNum++;
-      }
     }
 
-    // Content & Copy Rules
-    if (prohibit100Percent) {
-      rulesList.push(`${ruleNum}. Absolute claims such as "100%" should not be written.`);
+    // 1. Brand Voice & Tone Governance
+    if (preferredTones.length > 0) {
+      rulesList.push(`${ruleNum}. Brand Voice & Tone: Approved primary voice must remain ${preferredTones.join(', ')}.`);
+      ruleNum++;
+    }
+    if (prohibitedTones.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Tones: Marketing copy must not use ${prohibitedTones.join(', ')} tone.`);
+      ruleNum++;
+    }
+
+    // 2. Prohibited Symbols & Punctuation
+    if (prohibitedSymbols.length > 0) {
+      const symList = prohibitedSymbols.map(s => s === 'Emoji' ? 'Emojis' : `'${s}'`).join(', ');
+      rulesList.push(`${ruleNum}. Prohibited Symbols & Punctuation: Use of ${symList} is strictly prohibited in marketing copy.`);
+      ruleNum++;
+    }
+
+    // 3. Prohibited Vocabulary & Banned Words
+    if (bannedWords.length > 0) {
+      rulesList.push(`${ruleNum}. Prohibited Vocabulary: Banned terms ${bannedWords.map(w => `'${w}'`).join(', ')} must not appear in marketing claims.`);
+      ruleNum++;
+    }
+
+    // 4. Company, Competitor & Entity Governance
+    if (prohibitCompetitorMentions) {
+      const compText = blockedCompetitors.trim() ? ` (including ${blockedCompetitors.trim()})` : '';
+      rulesList.push(`${ruleNum}. Company & Competitor Mentions: Direct mentions of other companies or competitor brands${compText} are strictly prohibited.`);
       ruleNum++;
     }
     if (prohibitPersonNames) {
-      rulesList.push(`${ruleNum}. Name of any person should not be mentioned in marketing copy.`);
-      ruleNum++;
-    }
-    if (allowedAmbassadors.trim()) {
-      rulesList.push(`${ruleNum}. Name of Our brand ambassador can be mentioned, which is ${allowedAmbassadors.trim()}.`);
-      ruleNum++;
-    }
-    if (prohibitQuestions) {
-      rulesList.push(`${ruleNum}. Questions should not be added in marketing copy.`);
-      ruleNum++;
-    }
-    if (prohibitExclamations) {
-      rulesList.push(`${ruleNum}. Use of exclamation marks (!) is strictly prohibited.`);
-      ruleNum++;
-    }
-    if (bannedWords.length > 0) {
-      rulesList.push(`${ruleNum}. Prohibited terms: ${bannedWords.map(w => `'${w}'`).join(', ')} must not appear in marketing claims.`);
+      const whitelistText = whitelistedEntities.trim() ? `, except verified brand spokespersons: ${whitelistedEntities.trim()}` : '';
+      rulesList.push(`${ruleNum}. Entity Governance: Names of individuals or unauthorized celebrities must not be mentioned in marketing copy${whitelistText}.`);
       ruleNum++;
     }
 
-    // Visual & Color Governance
+    // 5. Legal Disclaimers & Absolute Claims
+    if (prohibitGuarantees) {
+      rulesList.push(`${ruleNum}. Absolute Claims: Unsubstantiated guarantees and absolute promises are strictly prohibited.`);
+      ruleNum++;
+    }
+    if (requireTermsDisclaimer) {
+      rulesList.push(`${ruleNum}. Legal Disclaimers: All promotional claims must include mandatory "Terms and conditions apply" disclaimer.`);
+      ruleNum++;
+    }
+
+    // 6. Visual & Color Governance
     if (prohibitedColors.length > 0) {
       const pNames = prohibitedColors.map(c => `${c.name} (${c.hex})`).join(', ');
       rulesList.push(`${ruleNum}. Prohibited Colors: No ${pNames} should be used in posters or creative assets.`);
@@ -648,30 +733,129 @@ export default function GuidelinesDirectoryPage() {
 
     setApprovedColors(parsedApproved);
 
-    // 3. Claims & Rules Extraction
-    setProhibit100Percent(textLower.includes('100%'));
-    setProhibitPersonNames(textLower.includes('name of any person') || textLower.includes('person name'));
+    // 3. Prohibited Symbols & Punctuation
+    const parsedSymbols: string[] = [];
+    if (textLower.includes('question') || textClean.includes('?')) {
+      parsedSymbols.push('?');
+    }
+    if (textLower.includes('exclam') || textLower.includes('exclai') || textClean.includes('!')) {
+      parsedSymbols.push('!');
+    }
+    if (textLower.includes('100%') || textClean.includes('%')) {
+      parsedSymbols.push('%');
+    }
+    if (textLower.includes('currency') || textClean.includes('$')) {
+      parsedSymbols.push('$');
+    }
+    if (textLower.includes('hashtag') || textClean.includes('#')) {
+      parsedSymbols.push('#');
+    }
+    if (textLower.includes('asterisk') || textClean.includes('*')) {
+      parsedSymbols.push('*');
+    }
+    if (textLower.includes('mention') || textClean.includes('@')) {
+      parsedSymbols.push('@');
+    }
+    if (textLower.includes('emoji')) {
+      parsedSymbols.push('Emoji');
+    }
+    setProhibitedSymbols(parsedSymbols);
 
-    const ambMatch = textClean.match(/(?:brand ambassador|ambassador)[^.\n]*?(?:which is|:|is)\s*([A-Za-z\s]+?)(?:[.,\n]|$)/i);
-    if (ambMatch && ambMatch[1]) {
-      setAllowedAmbassadors(ambMatch[1].trim());
+    // 4. Tone Governance
+    const parsedProhibitedTones: string[] = [];
+    if (textLower.includes('exclam') || textLower.includes('exclai') || textLower.includes('hype') || textLower.includes('aggressive')) {
+      parsedProhibitedTones.push('Aggressive / High-Pressure');
+    }
+    if (textLower.includes('question') || textLower.includes('uncertain')) {
+      parsedProhibitedTones.push('Uncertain / Questioning');
+    }
+    if (textLower.includes('slang') || textLower.includes('casual')) {
+      parsedProhibitedTones.push('Casual / Slang');
+    }
+    if (textLower.includes('sensational') || textLower.includes('clickbait')) {
+      parsedProhibitedTones.push('Sensationalist / Clickbait');
+    }
+    if (textLower.includes('sarcas') || textLower.includes('humor')) {
+      parsedProhibitedTones.push('Sarcastic / Humorous');
+    }
+    if (textLower.includes('informal') || textLower.includes('colloquial')) {
+      parsedProhibitedTones.push('Informal / Colloquial');
+    }
+    if (textLower.includes('superlative') || textLower.includes('unsubstantiated')) {
+      parsedProhibitedTones.push('Unsubstantiated / Superlative');
+    }
+    setProhibitedTones(parsedProhibitedTones);
+
+    const parsedPreferredTones: string[] = [];
+    if (textLower.includes('objective') || textLower.includes('data-backed') || textLower.includes('data backed')) {
+      parsedPreferredTones.push('Objective & Data-Backed');
+    }
+    if (textLower.includes('professional') || textLower.includes('authoritative')) {
+      parsedPreferredTones.push('Professional & Authoritative');
+    }
+    if (textLower.includes('empath') || textLower.includes('customer-centric')) {
+      parsedPreferredTones.push('Empathetic & Customer-Centric');
+    }
+    if (textLower.includes('clear') || textLower.includes('transparent')) {
+      parsedPreferredTones.push('Clear & Transparent');
+    }
+    if (textLower.includes('inspir') || textLower.includes('purpose-driven')) {
+      parsedPreferredTones.push('Inspiring & Purpose-Driven');
+    }
+    if (parsedPreferredTones.length === 0) {
+      parsedPreferredTones.push('Professional & Authoritative');
+    }
+    setPreferredTones(parsedPreferredTones);
+
+    // 5. Company, Competitor & Entity Governance
+    setProhibitCompetitorMentions(
+      textLower.includes('competitor') ||
+      textLower.includes('other company') ||
+      textLower.includes('other companies') ||
+      textLower.includes('rival')
+    );
+
+    const compMatch = textClean.match(/(?:competitor|other company|rivals?)[^.\n]*?(?:such as|including|namely|:|is)\s*([A-Za-z0-9\s,]+?)(?:[.\n]|$)/i);
+    if (compMatch && compMatch[1]) {
+      setBlockedCompetitors(compMatch[1].trim());
     } else {
-      setAllowedAmbassadors('');
+      setBlockedCompetitors('');
     }
 
-    setProhibitQuestions(
-      textLower.includes('question should not') ||
-      textLower.includes('prohibit question') ||
-      textLower.includes('no question') ||
-      textLower.includes('question is prohibited')
+    setProhibitPersonNames(
+      textLower.includes('name of any person') ||
+      textLower.includes('person name') ||
+      textLower.includes('individual name') ||
+      textLower.includes('celebrity')
     );
-    setProhibitExclamations(
-      textLower.includes('exclai') ||
-      textLower.includes('exclamation')
-    );
-    setProhibitGuarantees(textLower.includes('guarantee'));
-    setProhibitCompetitorClaims(textLower.includes('competitor'));
+
+    const entityMatch = textClean.match(/(?:brand ambassador|ambassador|spokesperson|spokespersons?|endorser)[^.\n]*?(?:which is|:|is|are)\s*([A-Za-z\s,]+?)(?:[.,\n]|$)/i);
+    if (entityMatch && entityMatch[1]) {
+      setWhitelistedEntities(entityMatch[1].trim());
+    } else {
+      setWhitelistedEntities('');
+    }
+
+    // 6. Prohibited Vocabulary & Banned Words
+    const extractedWords: string[] = [];
+    if (textLower.includes('100%')) {
+      extractedWords.push('100%');
+    }
+    if (textLower.includes('guarantee')) {
+      extractedWords.push('guarantee');
+    }
+    const quoteMatches = textClean.matchAll(/['"]([^'"]+?)['"]/g);
+    for (const q of quoteMatches) {
+      const w = q[1].trim();
+      if (w.length > 1 && !extractedWords.includes(w) && !STANDARD_COLOR_MAP[w.toLowerCase()]) {
+        extractedWords.push(w);
+      }
+    }
+    setBannedWords(extractedWords);
+
+    // 7. Legal Disclaimers & Guarantees
     setRequireTermsDisclaimer(textLower.includes('terms and conditions') || textLower.includes('terms disclaimer'));
+    setProhibitGuarantees(textLower.includes('guarantee'));
 
     const hasStandardSection =
       textLower.includes('section 1') ||
@@ -715,14 +899,15 @@ export default function GuidelinesDirectoryPage() {
       setPolicyVersion('1.0');
       setPolicyDescription('Official corporate brand identity, copy compliance, and creative asset governance policy.');
       setIncludeStandardRules(false);
-      setProhibit100Percent(false);
-      setProhibitGuarantees(false);
-      setProhibitCompetitorClaims(false);
-      setRequireTermsDisclaimer(false);
+      setPreferredTones(['Professional & Authoritative', 'Objective & Data-Backed']);
+      setProhibitedTones([]);
+      setProhibitedSymbols([]);
+      setProhibitCompetitorMentions(false);
+      setBlockedCompetitors('');
       setProhibitPersonNames(false);
-      setAllowedAmbassadors('');
-      setProhibitQuestions(false);
-      setProhibitExclamations(false);
+      setWhitelistedEntities('');
+      setRequireTermsDisclaimer(false);
+      setProhibitGuarantees(false);
       setApprovedColors([]);
       setProhibitedColors([]);
       setBannedWords([]);
@@ -813,14 +998,24 @@ export default function GuidelinesDirectoryPage() {
         version: policyVersion.trim() || '1.0',
         description: policyDescription.trim(),
         include_standard_rules: includeStandardRules,
-        prohibit_100_percent: prohibit100Percent,
+        preferred_tones: preferredTones,
+        prohibited_tones: prohibitedTones,
+        prohibited_symbols: prohibitedSymbols,
+        prohibit_competitor_mentions: prohibitCompetitorMentions,
+        blocked_competitors: blockedCompetitors.split(',').map(s => s.trim()).filter(Boolean),
         prohibit_person_names: prohibitPersonNames,
-        allowed_ambassadors: allowedAmbassadors.split(',').map(s => s.trim()).filter(Boolean),
-        prohibit_questions: prohibitQuestions,
-        prohibit_exclamations: prohibitExclamations,
+        whitelisted_entities: whitelistedEntities.split(',').map(s => s.trim()).filter(Boolean),
+        prohibited_words: bannedWords,
+        require_terms_disclaimer: requireTermsDisclaimer,
+        prohibit_guarantees: prohibitGuarantees,
         prohibited_colors: prohibitedColors.map(c => c.name),
         approved_palette: approvedColors.map(c => c.hex),
-        prohibited_words: bannedWords,
+        // Legacy fields for backward compatibility
+        allowed_ambassadors: whitelistedEntities.split(',').map(s => s.trim()).filter(Boolean),
+        prohibit_questions: prohibitedSymbols.includes('?'),
+        prohibit_exclamations: prohibitedSymbols.includes('!'),
+        prohibit_100_percent: bannedWords.includes('100%') || prohibitedSymbols.includes('%'),
+        prohibit_competitor_claims: prohibitCompetitorMentions,
         raw_content: finalContent,
       };
 
@@ -1577,161 +1772,283 @@ export default function GuidelinesDirectoryPage() {
                     </div>
                   </div>
 
-                  {/* Claims, Tone & Punctuation Constraints */}
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2.5 p-4 rounded-2xl bg-white border border-slate-200/80">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5 mb-2">
-                        <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Copy &amp; Claim Rules</span>
-                      </h4>
-
-                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">Prohibit 100% Claims</span>
-                          <span className="text-[11px] text-slate-500">Bans absolute &quot;100%&quot; promises</span>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={prohibit100Percent}
-                          onChange={e => setProhibit100Percent(e.target.checked)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">Prohibit Guarantees</span>
-                          <span className="text-[11px] text-slate-500">Flags &quot;guaranteed&quot;, &quot;guarantee&quot;</span>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={prohibitGuarantees}
-                          onChange={e => setProhibitGuarantees(e.target.checked)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">Prohibit Competitor Claims</span>
-                          <span className="text-[11px] text-slate-500">Bans named competitive benchmarking</span>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={prohibitCompetitorClaims}
-                          onChange={e => setProhibitCompetitorClaims(e.target.checked)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">Require Terms Disclaimer</span>
-                          <span className="text-[11px] text-slate-500">Demands &quot;Terms and conditions apply&quot;</span>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={requireTermsDisclaimer}
-                          onChange={e => setRequireTermsDisclaimer(e.target.checked)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                      </label>
+                  {/* 1. Brand Voice & Tone Governance Card */}
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                          <Volume2 className="w-4 h-4 text-indigo-600" />
+                          <span>Brand Voice &amp; Tone Standards</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Select approved core brand personality and strictly prohibited emotional tones.
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="space-y-2.5 p-4 rounded-2xl bg-white border border-slate-200/80">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5 mb-2">
-                        <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Tone, Punctuation &amp; Persona</span>
-                      </h4>
-
-                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">Prohibit Person Names</span>
-                          <span className="text-[11px] text-slate-500">Flags individual person names</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      {/* Preferred Brand Voice */}
+                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/20 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            Preferred Tone (Approved Voice)
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-mono font-bold">{preferredTones.length} selected</span>
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={prohibitPersonNames}
-                          onChange={e => setProhibitPersonNames(e.target.checked)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                      </label>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                          Allowed Brand Ambassador(s)
-                        </label>
-                        <input
-                          type="text"
-                          value={allowedAmbassadors}
-                          onChange={e => setAllowedAmbassadors(e.target.value)}
-                          placeholder="e.g. Hritik Roshan (optional)"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
-                        />
-                        <p className="text-[10px] text-slate-400 mt-0.5">Exempt from person name prohibitions.</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {STANDARD_PREFERRED_TONES.map(tone => {
+                            const isSelected = preferredTones.includes(tone);
+                            return (
+                              <button
+                                key={tone}
+                                type="button"
+                                onClick={() => togglePreferredTone(tone)}
+                                className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                }`}
+                              >
+                                {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3 opacity-40" />}
+                                <span>{tone}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
-                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">Prohibit Question Marks (?)</span>
-                          <span className="text-[11px] text-slate-500">No rhetorical or interrogative copy</span>
+                      {/* Prohibited Tones */}
+                      <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-rose-500" />
+                            Prohibited Tones (Unwanted Voice)
+                          </span>
+                          <span className="text-[10px] text-rose-700 font-mono font-bold">{prohibitedTones.length} banned</span>
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={prohibitQuestions}
-                          onChange={e => setProhibitQuestions(e.target.checked)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">Prohibit Exclamation Marks (!)</span>
-                          <span className="text-[11px] text-slate-500">Maintains enterprise professional tone</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {STANDARD_PROHIBITED_TONES.map(tone => {
+                            const isSelected = prohibitedTones.includes(tone);
+                            return (
+                              <button
+                                key={tone}
+                                type="button"
+                                onClick={() => toggleProhibitedTone(tone)}
+                                className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                                  isSelected
+                                    ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                }`}
+                              >
+                                {isSelected ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3 opacity-40" />}
+                                <span>{tone}</span>
+                              </button>
+                            );
+                          })}
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={prohibitExclamations}
-                          onChange={e => setProhibitExclamations(e.target.checked)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                        />
-                      </label>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Banned Words & Vocabulary Tag Manager */}
-                  <div className="p-4 rounded-2xl bg-white border border-slate-200/80 space-y-3">
+                  {/* 2. Prohibited Symbols & Characters Card */}
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-3.5 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                          Banned Words &amp; Prohibited Vocabulary
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                          <Hash className="w-4 h-4 text-indigo-600" />
+                          <span>Prohibited Symbols &amp; Punctuation</span>
                         </h4>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Custom phrases deterministically intercepted in text copy &amp; image OCR claims.
+                          Select standard punctuation marks, symbols, or emojis to deterministically ban from marketing copy.
                         </p>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">{bannedWords.length} terms</span>
+                      <span className="text-[10px] font-mono text-slate-400 font-bold">{prohibitedSymbols.length} banned symbols</span>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 min-h-[36px]">
-                      {bannedWords.map((word) => (
-                        <span
-                          key={word}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 text-xs font-mono font-medium"
-                        >
-                          {word}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                      {STANDARD_SYMBOLS.map(item => {
+                        const isBanned = prohibitedSymbols.includes(item.symbol);
+                        return (
                           <button
+                            key={item.symbol}
                             type="button"
-                            onClick={() => removeBannedWord(word)}
-                            className="text-slate-400 hover:text-rose-600 transition-colors"
+                            onClick={() => toggleProhibitedSymbol(item.symbol)}
+                            className={`p-2.5 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                              isBanned
+                                ? 'bg-rose-50 border-rose-300 text-rose-900 shadow-2xs ring-1 ring-rose-200'
+                                : 'bg-slate-50/60 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                            }`}
                           >
-                            <X className="w-3 h-3" />
+                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
+                              isBanned ? 'bg-rose-600 text-white' : 'bg-white border border-slate-200 text-slate-700'
+                            }`}>
+                              {item.symbol === 'Emoji' ? '😊' : item.symbol}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold block leading-tight truncate">{item.label}</span>
+                              <span className="text-[10px] text-slate-500 leading-tight block mt-0.5 line-clamp-1">{item.desc}</span>
+                            </div>
                           </button>
-                        </span>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add Custom Symbol Input */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                      <input
+                        type="text"
+                        value={customSymbolInput}
+                        onChange={e => setCustomSymbolInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addCustomSymbol();
+                          }
+                        }}
+                        placeholder="Add custom prohibited character or symbol (e.g. '~', '^', '&') and press Enter"
+                        className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={addCustomSymbol}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors inline-flex items-center gap-1 shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Ban Symbol
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. Company, Competitor & Entity Governance Card */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Other Company & Competitor Mentions */}
+                    <div className="p-4 rounded-2xl bg-white border border-slate-200/80 space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                          <Building2 className="w-4 h-4 text-indigo-600" />
+                          <span>Other Company Mentions</span>
+                        </h4>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={prohibitCompetitorMentions}
+                            onChange={e => setProhibitCompetitorMentions(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Prohibits direct competitive benchmarking or third-party company name drops without verified citations.
+                      </p>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                          Explicitly Blocked Competitors / Brands
+                        </label>
+                        <input
+                          type="text"
+                          value={blockedCompetitors}
+                          onChange={e => setBlockedCompetitors(e.target.value)}
+                          placeholder="e.g. Acme Corp, RivalTech, Competitor X (comma-separated)"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Person & Spokesperson Governance */}
+                    <div className="p-4 rounded-2xl bg-white border border-slate-200/80 space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                          <Users className="w-4 h-4 text-indigo-600" />
+                          <span>Entity &amp; Spokesperson Governance</span>
+                        </h4>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={prohibitPersonNames}
+                            onChange={e => setProhibitPersonNames(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Flags individual person names or unauthorized celebrity endorsements in marketing creative copy.
+                      </p>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                          Whitelisted Entities &amp; Spokespersons
+                        </label>
+                        <input
+                          type="text"
+                          value={whitelistedEntities}
+                          onChange={e => setWhitelistedEntities(e.target.value)}
+                          placeholder="e.g. Hritik Roshan, CEO Name (exempt from person ban)"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Prohibited Vocabulary & Banned Words Card */}
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-3.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                          <MessageSquare className="w-4 h-4 text-indigo-600" />
+                          <span>Prohibited Vocabulary &amp; Banned Claims</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Restricted phrases deterministically intercepted across marketing copy, slogans, and image OCR.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 font-bold">{bannedWords.length} terms</span>
+                    </div>
+
+                    {/* Quick suggestion chips */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Quick Add:</span>
+                      {SUGGESTED_BANNED_WORDS.filter(w => !bannedWords.includes(w)).map(suggestion => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => setBannedWords(prev => [...prev, suggestion])}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors shrink-0 flex items-center gap-0.5"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          {suggestion}
+                        </button>
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1">
+                    <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                      {bannedWords.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-1">No custom banned terms added. Type below or use quick add chips.</p>
+                      ) : (
+                        bannedWords.map((word) => (
+                          <span
+                            key={word}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 text-xs font-mono font-medium shadow-2xs"
+                          >
+                            {word}
+                            <button
+                              type="button"
+                              onClick={() => removeBannedWord(word)}
+                              className="text-slate-400 hover:text-rose-600 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
                       <input
                         type="text"
                         value={newWord}
@@ -1742,7 +2059,7 @@ export default function GuidelinesDirectoryPage() {
                             addBannedWord();
                           }
                         }}
-                        placeholder="Add banned word or phrase (e.g. 'unlimited', 'guaranteed') and press Enter"
+                        placeholder="Add banned word or phrase (e.g. '100%', 'risk-free', 'unlimited') and press Enter"
                         className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                       />
                       <button
@@ -1753,6 +2070,42 @@ export default function GuidelinesDirectoryPage() {
                         <Plus className="w-3.5 h-3.5" />
                         Add Word
                       </button>
+                    </div>
+                  </div>
+
+                  {/* 5. Legal Disclaimers & Absolute Claims Card */}
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200/80 space-y-2.5 shadow-2xs">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5 mb-1">
+                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <span>Legal Compliance &amp; Disclaimer Standards</span>
+                    </h4>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <div>
+                          <span className="text-xs font-bold text-slate-800 block">Require Mandatory Terms Disclaimer</span>
+                          <span className="text-[11px] text-slate-500">Demands &quot;Terms and conditions apply&quot; on promotional copy</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={requireTermsDisclaimer}
+                          onChange={e => setRequireTermsDisclaimer(e.target.checked)}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <div>
+                          <span className="text-xs font-bold text-slate-800 block">Prohibit Absolute Guarantees</span>
+                          <span className="text-[11px] text-slate-500">Bans unverifiable &quot;guaranteed&quot; / &quot;guarantee&quot; claims</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={prohibitGuarantees}
+                          onChange={e => setProhibitGuarantees(e.target.checked)}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>
