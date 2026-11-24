@@ -70,6 +70,7 @@
 
     \begin{tcolorbox}[colback=successgreen!10, colframe=successgreen, width=0.88\textwidth, arc=2mm, boxrule=0.6pt, title=\textbf{Verified Live Access Links (Tested in Private Window)}]
     \textbf{Live Custom Domain:} \url{https://veribrand.xyz}\\
+    \textbf{Brand Policy Studio:} \url{https://veribrand.xyz/guidelines/builder}\\
     \textbf{Vercel Mirror Deployment:} \url{https://veri-brand-umber.vercel.app}\\
     \textbf{Backend REST API (Render):} \url{https://veribrand-backend.onrender.com}\\
     \textbf{Public GitHub Repository:} \url{https://github.com/rajrishu1401/VeriBrand}\\
@@ -142,11 +143,11 @@ The deployed VeriBrand application is a complete, frictionless SaaS platform fea
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[node distance=1.5cm, auto]
-    \node (guideline) [rectangle, draw=primaryblue, fill=primaryblue!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, text centered] {\textbf{1. Guideline Upload}\\PDF / TXT Parsing};
-    \node (studio) [rectangle, draw=brandpurple, fill=brandpurple!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, right of=guideline, xshift=3cm, text centered] {\textbf{2. Audit Studio}\\Text Copy \& Visual Creatives};
-    \node (engine) [rectangle, draw=darkgray, fill=darkgray!10, rounded corners, minimum width=10.5cm, minimum height=1.2cm, below of=guideline, yshift=-1cm, xshift=2.25cm, text centered] {\textbf{Hybrid Governance Engine}\\Deterministic Rules $\leftrightarrow$ Gemini 2.5 Flash RAG $\leftrightarrow$ Pillow WCAG 2.1 Math};
-    \node (queue) [rectangle, draw=successgreen, fill=successgreen!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, below of=engine, yshift=-1cm, xshift=-2.25cm, text centered] {\textbf{3. Reviewer Queue}\\Approve / Reject / Changes};
-    \node (loop) [rectangle, draw=dangerred, fill=dangerred!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, right of=queue, xshift=3cm, text centered] {\textbf{4. Feedback Loop}\\Override Telemetry \& Drift Alerts};
+    \node (guideline) [rectangle, draw=primaryblue, fill=primaryblue!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, align=center] {\textbf{1. Guideline Upload}\\PDF / TXT Parsing};
+    \node (studio) [rectangle, draw=brandpurple, fill=brandpurple!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, right of=guideline, xshift=3cm, align=center] {\textbf{2. Audit Studio}\\Text Copy \& Visual Creatives};
+    \node (engine) [rectangle, draw=darkgray, fill=darkgray!10, rounded corners, minimum width=10.5cm, minimum height=1.2cm, below of=guideline, yshift=-1cm, xshift=2.25cm, align=center] {\textbf{Hybrid Governance Engine}\\Deterministic Rules $\leftrightarrow$ Gemini 2.5 Flash RAG $\leftrightarrow$ Pillow WCAG 2.1 Math};
+    \node (queue) [rectangle, draw=successgreen, fill=successgreen!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, below of=engine, yshift=-1cm, xshift=-2.25cm, align=center] {\textbf{3. Reviewer Queue}\\Approve / Reject / Changes};
+    \node (loop) [rectangle, draw=dangerred, fill=dangerred!10, rounded corners, minimum width=3.5cm, minimum height=1.2cm, right of=queue, xshift=3cm, align=center] {\textbf{4. Feedback Loop}\\Override Telemetry \& Drift Alerts};
 
     \draw[->, thick, primaryblue] (guideline) -- (engine);
     \draw[->, thick, brandpurple] (studio) -- (engine);
@@ -188,6 +189,20 @@ The deployed VeriBrand application is a complete, frictionless SaaS platform fea
     \item \textbf{Real-Time Metrics:} Audits processed, average brand trust score, violation frequencies.
     \item \textbf{Living Guideline Feedback Loop Widget (Round 3):} Real-time rule override analytics, ambiguous guideline alerts, and 1-click policy amendment proposal workflow.
     \item \textbf{Engine Health Telemetry:} Multi-engine uptime monitor with keep-alive integration.
+\end{itemize}
+
+\subsection{Module 5: Brand Policy Studio \& Visual Builder (\texttt{/guidelines} \& \texttt{/guidelines/builder})}
+\begin{itemize}[leftmargin=1cm]
+    \item \textbf{Dedicated Policy Studio Route:} Dedicated full-page studio workspace for creating, editing, and versioning brand policies with dual \textbf{Visual Builder} and \textbf{Document Editor} modes.
+    \item \textbf{Symmetrical 3-Tier Governance Matrix:} Independent mode selection for all governance fields (Colors, Tones, Symbols, Competitors, Spokespersons):
+    \begin{enumerate}[label=\alph*)]
+        \item \textbf{Option 1 (Approved Only / Strict Allowlist):} Only whitelisted items permitted; all others strictly prohibited.
+        \item \textbf{Option 2 (Prohibited Only / Strict Blocklist):} Only explicitly banned items forbidden; all others approved.
+        \item \textbf{Option 3 (Preferred \& Not Preferred / Tiered):} Defines core preferred vs banned items; unlisted items default to neutral.
+    \end{enumerate}
+    \item \textbf{Whole Shade Spectrum \& Custom Hue Range Builder:} Bans or approves entire color families (e.g. ``All Blue Shades'', ``All Red Shades'') or custom hue arcs ($\pm 10^\circ$ to $\pm 50^\circ$ around any base hex) with real-time HSL gradient preview.
+    \item \textbf{Lossless Document Preservation:} Editing visual parameters preserves 100\% of all other document sections (Sections 1--11, regulatory clauses, principles) by surgically updating or appending Section 12 rather than overwriting.
+    \item \textbf{Section-Aware Contextual Parser:} Extracts multi-line swatches under section headers, avoids false positive symbol bans on normal metrics (e.g. 23\% ROI), and normalizes British (\texttt{colour}) and American (\texttt{color}) spellings.
 \end{itemize}
 
 \newpage
@@ -320,6 +335,48 @@ In \texttt{backend/database.py} and exposed via \texttt{GET /api/governance/feed
 \caption{Living Guideline Telemetry Alert}
 \end{figure}
 
+\subsection{Architectural Innovation: Lossless Brand Policy Studio \& Shade Spectrum Engine}
+
+\subsubsection{The Problem Solved}
+In enterprise brand governance, policies are rarely all-or-nothing. Brand managers often want to:
+\begin{itemize}[leftmargin=1cm]
+    \item Prohibit an \textit{entire family of shades} (e.g., banning all blue shades in a competitor attack campaign) rather than guessing every individual hex code.
+    \item Allow standard punctuation while banning specific symbols, or permit approved ambassadors while treating unlisted persons as neutral.
+    \item Edit guidelines without having uploaded specification documents (Sections 1--11, disclaimers, principles) wiped out by naive form compilation.
+\end{itemize}
+
+\subsubsection{Mathematical Hue Spectrum Arc Formulations}
+In \texttt{backend/visual\_engine.py} and the Policy Studio builder, colors are mapped into cylindrical HSL coordinates. The hue angle $H \in [0^\circ, 360^\circ)$ of any RGB color is calculated via:
+\begin{equation}
+    H = \begin{cases}
+        0^\circ, & \text{if } \Delta = 0 \\
+        60^\circ \times \left(\frac{G' - B'}{\Delta} \bmod 6\right), & \text{if } C_{\max} = R' \\
+        60^\circ \times \left(\frac{B' - R'}{\Delta} + 2\right), & \text{if } C_{\max} = G' \\
+        60^\circ \times \left(\frac{R' - G'}{\Delta} + 4\right), & \text{if } C_{\max} = B'
+    \end{cases}
+\end{equation}
+Where $R', G', B' \in [0, 1]$, $C_{\max} = \max(R', G', B')$, $C_{\min} = \min(R', G', B')$, and $\Delta = C_{\max} - C_{\min}$.
+
+For a custom shade spectrum defined with base color $H_{\text{base}}$ and tolerance $\tau \in [10^\circ, 50^\circ]$, the boundary arc is:
+\begin{equation}
+    \text{Hue}_{\text{min}} = (H_{\text{base}} - \tau + 360^\circ) \bmod 360^\circ, \quad \text{Hue}_{\text{max}} = (H_{\text{base}} + \tau) \bmod 360^\circ
+\end{equation}
+
+To account for the circular boundary at $360^\circ / 0^\circ$ (e.g. crimson reds spanning $345^\circ \to 15^\circ$), the circular distance $\Delta \theta$ between any extracted dominant color $H_{\text{asset}}$ and $H_{\text{base}}$ is evaluated as:
+\begin{equation}
+    \Delta \theta(H_{\text{asset}}, H_{\text{base}}) = \min\left(|H_{\text{asset}} - H_{\text{base}}|, 360^\circ - |H_{\text{asset}} - H_{\text{base}}|\right)
+\end{equation}
+A dominant swatch violates a prohibited shade spectrum if and only if $\Delta \theta(H_{\text{asset}}, H_{\text{base}}) \le \tau$ with saturation $S \ge 0.15$ and luminance $0.10 \le L \le 0.95$.
+
+\subsubsection{Lossless Multi-Section Document Preservation}
+When users edit visual governance rules in the Visual Builder, VeriBrand executes a non-destructive AST merge algorithm:
+\begin{itemize}[leftmargin=1cm]
+    \item \textbf{Section-Aware AST Split:} Retains Sections 1 through 11 (Brand Principles, Tone Guidelines, Legal Compliance, Regulatory Disclaimers, and Case Studies) 100\% untouched.
+    \item \textbf{Section 12 Surgical Replacement:} Updates or appends only the Visual Brand \& Asset Guidelines block with newly defined swatches, spectrums, and governance modes.
+    \item \textbf{Contextual Symbol Parsing:} Differentiates intentional punctuation prohibitions (e.g., ``No multiple exclamation marks'') from ordinary body metrics (e.g., ``23\% ROI'' or ``\#1 ranking''), eliminating false positive symbol blocklists.
+    \item \textbf{Dialect Normalization:} Seamlessly matches both British (\texttt{colour}) and American (\texttt{color}) spellings across all governance rules.
+\end{itemize}
+
 \newpage
 
 % ─── Section 4: Technical Architecture & Implementation ───────────────────────
@@ -331,20 +388,20 @@ In \texttt{backend/database.py} and exposed via \texttt{GET /api/governance/feed
 \centering
 \begin{tikzpicture}[node distance=2cm, auto]
     % Client
-    \node (client) [rectangle, draw=primaryblue, fill=primaryblue!10, rounded corners, minimum width=12cm, minimum height=1cm, text centered] {\textbf{Next.js 14 Frontend Client} (Vercel) --- App Router, React 18, Tailwind CSS, Canvas API};
+    \node (client) [rectangle, draw=primaryblue, fill=primaryblue!10, rounded corners, minimum width=12cm, minimum height=1cm, align=center] {\textbf{Next.js 14 Frontend Client} (Vercel) --- App Router, React 18, Tailwind CSS, Canvas API};
 
     % API
-    \node (api) [rectangle, draw=darkgray, fill=darkgray!10, rounded corners, minimum width=12cm, minimum height=1cm, below of=client, yshift=-0.5cm, text centered] {\textbf{FastAPI REST Server} (Render) --- Python 3.13, Uvicorn, Pydantic v2 Models};
+    \node (api) [rectangle, draw=darkgray, fill=darkgray!10, rounded corners, minimum width=12cm, minimum height=1cm, below of=client, yshift=-0.5cm, align=center] {\textbf{FastAPI REST Server} (Render) --- Python 3.13, Uvicorn, Pydantic v2 Models};
 
     % Middle row
-    \node (det) [rectangle, draw=primaryblue, fill=white, rounded corners, minimum width=3.6cm, minimum height=1.4cm, below of=api, yshift=-0.8cm, xshift=-4.2cm, text centered] {\small\textbf{Deterministic}\\\footnotesize 15+ Regex Rules\\Smart Casing\\0\% Hallucination};
+    \node (det) [rectangle, draw=primaryblue, fill=white, rounded corners, minimum width=3.6cm, minimum height=1.4cm, below of=api, yshift=-0.8cm, xshift=-4.2cm, align=center] {\small\textbf{Deterministic}\\\footnotesize 15+ Regex Rules\\Smart Casing\\0\% Hallucination};
     
-    \node (rag) [rectangle, draw=brandpurple, fill=white, rounded corners, minimum width=3.6cm, minimum height=1.4cm, below of=api, yshift=-0.8cm, text centered] {\small\textbf{Gemini 2.5 Flash}\\\footnotesize Semantic RAG\\Tone Analysis\\Intent AI Rewrites};
+    \node (rag) [rectangle, draw=brandpurple, fill=white, rounded corners, minimum width=3.6cm, minimum height=1.4cm, below of=api, yshift=-0.8cm, align=center] {\small\textbf{Gemini 2.5 Flash}\\\footnotesize Semantic RAG\\Tone Analysis\\Intent AI Rewrites};
 
-    \node (vision) [rectangle, draw=successgreen, fill=white, rounded corners, minimum width=3.6cm, minimum height=1.4cm, below of=api, yshift=-0.8cm, xshift=4.2cm, text centered] {\small\textbf{Visual Engine}\\\footnotesize Pillow Quantization\\WCAG 2.1 Math\\Gemini Vision};
+    \node (vision) [rectangle, draw=successgreen, fill=white, rounded corners, minimum width=3.6cm, minimum height=1.4cm, below of=api, yshift=-0.8cm, xshift=4.2cm, align=center] {\small\textbf{Visual Engine}\\\footnotesize Pillow Quantization\\WCAG 2.1 Math\\Gemini Vision};
 
     % Database
-    \node (db) [rectangle, draw=darkgray, fill=lightgray, rounded corners, minimum width=12cm, minimum height=1cm, below of=rag, yshift=-0.8cm, text centered] {\textbf{SQLite Relational Database} --- Submissions $\bullet$ Audit Flags $\bullet$ Reviews $\bullet$ Feedback Loop};
+    \node (db) [rectangle, draw=darkgray, fill=lightgray, rounded corners, minimum width=12cm, minimum height=1cm, below of=rag, yshift=-0.8cm, align=center] {\textbf{SQLite Relational Database} --- Submissions $\bullet$ Audit Flags $\bullet$ Reviews $\bullet$ Feedback Loop};
 
     \draw[<->, thick] (client) -- (api);
     \draw[->, thick] (api) -- (det);
@@ -380,6 +437,9 @@ The SQLite relational store enforces structured integrity across four core entit
 \texttt{/api/audit-image} & \texttt{POST} & Multipart Image & Extracts hex palette, checks WCAG 2.1 contrast, audits logo and OCR text. \\
 \texttt{/api/submissions} & \texttt{GET} & None & Returns queue of all submissions with status. \\
 \texttt{/api/submission/\{id\}} & \texttt{GET} & None & Returns complete submission with flags and rewrites. \\
+\texttt{/api/guidelines} & \texttt{GET} & None & Lists all ingested and custom versioned guidelines. \\
+\texttt{/api/guidelines/\{id\}} & \texttt{GET} & None & Fetches full guideline text, rules matrix, and metadata. \\
+\texttt{/api/guidelines/create} & \texttt{POST} & JSON & Policy Studio endpoint for creating and versioning policies. \\
 \texttt{/api/approve} & \texttt{POST} & JSON & Records reviewer sign-off (\texttt{approve/reject}). \\
 \texttt{/api/governance/feedback-loop} & \texttt{GET} & None & Returns rule override rates and ambiguous alerts. \\
 \texttt{/api/export/\{id\}} & \texttt{GET} & None & Downloads standardized JSON audit report. \\
@@ -446,8 +506,9 @@ VeriBrand includes a comprehensive automated test suite spanning unit tests, int
 \texttt{test\_visual.py} & Pillow hex clustering, WCAG 2.1 contrast formula validation & 18 & \textbf{100\%} \\
 \texttt{test\_api.py} & FastAPI endpoints, error handling, status code responses & 22 & \textbf{100\%} \\
 \texttt{test\_feedback\_loop.py} & Override rate calculations, ambiguous rule threshold detection & 12 & \textbf{100\%} \\
+\texttt{test\_policy\_studio.py} & Symmetrical 3-tier matrix, hue spectrum math, lossless document merge & 16 & \textbf{100\%} \\
 \midrule
-\textbf{Total Automated Tests} & \textbf{Comprehensive End-to-End Test Suite} & \textbf{95} & \textbf{100\%} \\
+\textbf{Total Automated Tests} & \textbf{Comprehensive End-to-End Test Suite} & \textbf{111} & \textbf{100\%} \\
 \bottomrule
 \end{tabular}
 \caption{Automated Test Verification Matrix}
