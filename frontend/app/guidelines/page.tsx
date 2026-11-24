@@ -180,6 +180,135 @@ function parseGuidelineTextClient(text: string): ExtractedRule[] {
   return rules.length > 0 ? rules : DEFAULT_TECHCORP_RULES;
 }
 
+// ─── Standard Enterprise Color Dictionary & Hex Resolver ────────────────────
+const STANDARD_COLOR_MAP: Record<string, string> = {
+  // Base hues
+  red: '#EF4444',
+  blue: '#3B82F6',
+  green: '#10B981',
+  yellow: '#EAB308',
+  purple: '#A855F7',
+  orange: '#F97316',
+  pink: '#EC4899',
+  black: '#000000',
+  white: '#FFFFFF',
+  gray: '#6B7280',
+  grey: '#6B7280',
+  navy: '#1E1B4B',
+  indigo: '#4F46E5',
+  violet: '#7C3AED',
+  cyan: '#06B6D4',
+  teal: '#14B8A6',
+  magenta: '#FF00FF',
+  lime: '#84CC16',
+  amber: '#F59E0B',
+  rose: '#F43F5E',
+  emerald: '#10B981',
+  sky: '#0EA5E9',
+  maroon: '#800000',
+  crimson: '#DC143C',
+  coral: '#FF7F50',
+  gold: '#FFD700',
+  silver: '#C0C0C0',
+  brown: '#78350F',
+  olive: '#84CC16',
+  burgundy: '#800020',
+  turquoise: '#06B6D4',
+  fuchsia: '#FF00FF',
+  aqua: '#06B6D4',
+  beige: '#F5F5DC',
+  khaki: '#F0E68C',
+  plum: '#DDA0DD',
+  salmon: '#FA8072',
+  charcoal: '#334155',
+  slate: '#64748B',
+  // Neon variants
+  'neon green': '#00FF00',
+  'neon yellow': '#FFFF00',
+  'neon blue': '#00FFFF',
+  'neon pink': '#FF007F',
+  'neon orange': '#FF5F00',
+  'neon purple': '#B026FF',
+  'electric yellow': '#FFFF00',
+  'electric magenta': '#FF00FF',
+  'electric blue': '#00FBFF',
+  'harsh yellow': '#FFFF00',
+  // Modifiers & brand composites
+  'dark red': '#991B1B',
+  'light red': '#FCA5A5',
+  'dark blue': '#1E3A8A',
+  'light blue': '#93C5FD',
+  'deep blue': '#1D4ED8',
+  'deep navy': '#1E1B4B',
+  'dark green': '#14532D',
+  'light green': '#86EFAC',
+  'forest green': '#166534',
+  'royal blue': '#2563EB',
+  'primary indigo': '#4F46E5',
+  'accent violet': '#7C3AED',
+  'slate dark': '#0F172A',
+};
+
+function resolveColorToHex(input: string): string | null {
+  if (!input) return null;
+  const clean = input.trim().toLowerCase();
+
+  // 1. Direct hex match
+  const hexMatch = clean.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  if (hexMatch) return clean.toUpperCase();
+
+  // 2. Direct dictionary lookup
+  if (STANDARD_COLOR_MAP[clean]) {
+    return STANDARD_COLOR_MAP[clean];
+  }
+
+  // 3. Normalized stripped lookup
+  const stripped = clean.replace(/[-_\s]+/g, ' ');
+  if (STANDARD_COLOR_MAP[stripped]) {
+    return STANDARD_COLOR_MAP[stripped];
+  }
+
+  // 4. Browser native CSS color resolution (works for all 148 standard SVG/CSS color names)
+  if (typeof document !== 'undefined') {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = clean;
+        ctx.fillRect(0, 0, 1, 1);
+        const p = ctx.getImageData(0, 0, 1, 1).data;
+        // Verify that the color actually changed canvas from black (or test with another fill)
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = clean;
+        ctx.fillRect(0, 0, 1, 1);
+        const p2 = ctx.getImageData(0, 0, 1, 1).data;
+        if (p2[3] > 0) {
+          const r = p2[0].toString(16).padStart(2, '0');
+          const g = p2[1].toString(16).padStart(2, '0');
+          const b = p2[2].toString(16).padStart(2, '0');
+          return `#${r}${g}${b}`.toUpperCase();
+        }
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+function annotateInvalidHexInText(text: string): string {
+  if (!text) return '';
+  return text.replace(/(?:\/\*\s*\[INVALID HEX:\s*([^\]]+?)\s*skipped\]\s*\*\/)|(#([A-Za-z0-9]+))/g, (fullMatch, existingComment, hexMatch, hexDigits) => {
+    if (existingComment) {
+      return fullMatch;
+    }
+    if (hexDigits && (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hexDigits))) {
+      return fullMatch;
+    }
+    return `/* [INVALID HEX: ${hexMatch} skipped] */`;
+  });
+}
+
 export default function GuidelinesDirectoryPage() {
   const [guidelines, setGuidelines] = useState<GuidelineItem[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
@@ -202,23 +331,14 @@ export default function GuidelinesDirectoryPage() {
   const [policyVersion, setPolicyVersion] = useState('1.0');
   const [policyDescription, setPolicyDescription] = useState('Corporate brand governance standards for marketing copy and visual creatives.');
 
-  // Color Governance (Wanted / Approved)
-  const [approvedColors, setApprovedColors] = useState<{ hex: string; name: string }[]>([
-    { hex: '#4F46E5', name: 'Primary Indigo' },
-    { hex: '#1E1B4B', name: 'Deep Navy' },
-    { hex: '#7C3AED', name: 'Accent Violet' },
-    { hex: '#0F172A', name: 'Slate Dark' },
-  ]);
-  const [newColorHex, setNewColorHex] = useState('#2563EB');
+  // Color Governance (Wanted / Approved) - Clean initial state
+  const [approvedColors, setApprovedColors] = useState<{ hex: string; name: string }[]>([]);
+  const [newColorHex, setNewColorHex] = useState('#4F46E5');
   const [newColorName, setNewColorName] = useState('');
 
-  // Prohibited Colors (Unwanted)
-  const [prohibitedColors, setProhibitedColors] = useState<{ hex: string; name: string }[]>([
-    { hex: '#00FF00', name: 'Neon Green' },
-    { hex: '#FFFF00', name: 'Harsh Yellow' },
-    { hex: '#FF00FF', name: 'Electric Magenta' },
-  ]);
-  const [newProhibitHex, setNewProhibitHex] = useState('#FF0000');
+  // Prohibited Colors (Unwanted) - Clean initial state
+  const [prohibitedColors, setProhibitedColors] = useState<{ hex: string; name: string }[]>([]);
+  const [newProhibitHex, setNewProhibitHex] = useState('#EF4444');
   const [newProhibitName, setNewProhibitName] = useState('');
 
   // Standards & Claims Governance
@@ -424,6 +544,142 @@ export default function GuidelinesDirectoryPage() {
     return lines.join('\n');
   };
 
+  // ─── Dynamic Guideline Text to Form Parser ────────────────────────────────
+  const parseTextIntoFormState = (text: string) => {
+    if (!text || !text.trim()) {
+      setApprovedColors([]);
+      setProhibitedColors([]);
+      return;
+    }
+
+    const textClean = annotateInvalidHexInText(text);
+    const textLower = textClean.toLowerCase();
+
+    // 1. Prohibited Colors Extraction
+    const parsedProhibited: { hex: string; name: string }[] = [];
+    const prohibitLines = textClean.split('\n').filter(line => {
+      const l = line.toLowerCase();
+      return l.includes('no ') || l.includes('prohibit') || l.includes('ban') || l.includes('not allow') || l.includes('avoid');
+    });
+
+    Object.keys(STANDARD_COLOR_MAP).forEach(colorKey => {
+      const regex1 = new RegExp(`(?:no|not|prohibit\\w*|ban\\w*|avoid)\\s+[^.\\n]*?\\b${colorKey}\\b`, 'i');
+      const regex2 = new RegExp(`\\b${colorKey}\\b[^.\\n]*?(?:prohibit\\w*|ban\\w*|not allowed|should not be used|is prohibited)`, 'i');
+
+      if (regex1.test(textClean) || regex2.test(textClean)) {
+        const hex = STANDARD_COLOR_MAP[colorKey];
+        const displayName = colorKey.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        if (!parsedProhibited.some(p => p.hex.toUpperCase() === hex.toUpperCase())) {
+          parsedProhibited.push({ hex, name: displayName });
+        }
+      }
+    });
+
+    // Check for explicit hex codes in prohibition lines
+    const hexRegex = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/g;
+    prohibitLines.forEach(line => {
+      let match;
+      while ((match = hexRegex.exec(line)) !== null) {
+        const h = match[0].toUpperCase();
+        if (!parsedProhibited.some(p => p.hex === h)) {
+          const nameMatch = line.match(new RegExp(`([A-Za-z\\s]+?)\\s*\\(${h}\\)`, 'i'));
+          const cName = nameMatch ? nameMatch[1].trim() : `Hex ${h}`;
+          parsedProhibited.push({ hex: h, name: cName });
+        }
+      }
+    });
+
+    // Sort prohibited colors in the order they appear in the guideline text
+    parsedProhibited.sort((a, b) => {
+      const idxA = textLower.indexOf(a.name.toLowerCase());
+      const idxB = textLower.indexOf(b.name.toLowerCase());
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      return 0;
+    });
+
+    setProhibitedColors(parsedProhibited);
+
+    // 2. Approved Colors Extraction
+    const parsedApproved: { hex: string; name: string }[] = [];
+    const approvedLines = textClean.split('\n').filter(line => {
+      const l = line.toLowerCase();
+      return (
+        l.includes('approved') ||
+        l.includes('official brand') ||
+        l.includes('primary brand palette') ||
+        l.includes('brand color palette') ||
+        l.includes('approved palette') ||
+        l.includes('official palette')
+      );
+    });
+
+    if (approvedLines.length > 0) {
+      approvedLines.forEach(line => {
+        let match;
+        while ((match = hexRegex.exec(line)) !== null) {
+          const h = match[0].toUpperCase();
+          if (!parsedApproved.some(a => a.hex === h)) {
+            const nameMatch = line.match(new RegExp(`([A-Za-z\\s]+?)\\s*\\(${h}\\)`, 'i'));
+            const cName = nameMatch ? nameMatch[1].trim() : `Hex ${h}`;
+            parsedApproved.push({ hex: h, name: cName });
+          }
+        }
+
+        Object.keys(STANDARD_COLOR_MAP).forEach(colorKey => {
+          const pat = new RegExp(`\\b${colorKey}\\b`, 'i');
+          if (pat.test(line)) {
+            const hex = STANDARD_COLOR_MAP[colorKey];
+            const displayName = colorKey.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            if (!parsedApproved.some(a => a.hex.toUpperCase() === hex.toUpperCase())) {
+              parsedApproved.push({ hex, name: displayName });
+            }
+          }
+        });
+      });
+    }
+
+    // Sort approved colors in the order they appear in the guideline text
+    parsedApproved.sort((a, b) => {
+      const idxA = textLower.indexOf(a.name.toLowerCase());
+      const idxB = textLower.indexOf(b.name.toLowerCase());
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      return 0;
+    });
+
+    setApprovedColors(parsedApproved);
+
+    // 3. Claims & Rules Extraction
+    setProhibit100Percent(textLower.includes('100%'));
+    setProhibitPersonNames(textLower.includes('name of any person') || textLower.includes('person name'));
+
+    const ambMatch = textClean.match(/(?:brand ambassador|ambassador)[^.\n]*?(?:which is|:|is)\s*([A-Za-z\s]+?)(?:[.,\n]|$)/i);
+    if (ambMatch && ambMatch[1]) {
+      setAllowedAmbassadors(ambMatch[1].trim());
+    } else {
+      setAllowedAmbassadors('');
+    }
+
+    setProhibitQuestions(
+      textLower.includes('question should not') ||
+      textLower.includes('prohibit question') ||
+      textLower.includes('no question') ||
+      textLower.includes('question is prohibited')
+    );
+    setProhibitExclamations(
+      textLower.includes('exclai') ||
+      textLower.includes('exclamation')
+    );
+    setProhibitGuarantees(textLower.includes('guarantee'));
+    setProhibitCompetitorClaims(textLower.includes('competitor'));
+    setRequireTermsDisclaimer(textLower.includes('terms and conditions') || textLower.includes('terms disclaimer'));
+
+    const hasStandardSection =
+      textLower.includes('section 1') ||
+      textLower.includes('wcag 2.1') ||
+      textLower.includes('iso/iec 40500');
+    setIncludeStandardRules(hasStandardSection);
+  };
+
   const handleOpenBuilder = (existing?: GuidelineDetail) => {
     setBuilderError(null);
     setBuilderSuccess(null);
@@ -441,35 +697,35 @@ export default function GuidelinesDirectoryPage() {
       setPolicyVersion(nextVersion);
       setPolicyDescription(`Version ${nextVersion} updated from ${existing.filename}.`);
 
-      const content = existing.full_content || '';
-      setRawDocumentContent(content);
-      // Open directly in the document editor tab so user can review and edit the file text
-      setBuilderTab('document');
+      let content = existing.full_content || '';
+      if (!content.trim() && existing.rules && existing.rules.length > 0) {
+        content = existing.rules.map((r, i) => `${i + 1}. ${r.rule}`).join('\n');
+      }
+      if (!content.trim() && existing.content_preview) {
+        content = existing.content_preview;
+      }
+
+      const annotated = annotateInvalidHexInText(content);
+      setRawDocumentContent(annotated);
+      // Automatically parse the file content into Visual Form state
+      parseTextIntoFormState(annotated);
+      setBuilderTab('form');
     } else {
       setPolicyTitle('Enterprise Brand Governance Policy');
       setPolicyVersion('1.0');
       setPolicyDescription('Official corporate brand identity, copy compliance, and creative asset governance policy.');
-      setIncludeStandardRules(true);
-      setProhibit100Percent(true);
-      setProhibitGuarantees(true);
-      setProhibitCompetitorClaims(true);
-      setRequireTermsDisclaimer(true);
+      setIncludeStandardRules(false);
+      setProhibit100Percent(false);
+      setProhibitGuarantees(false);
+      setProhibitCompetitorClaims(false);
+      setRequireTermsDisclaimer(false);
       setProhibitPersonNames(false);
       setAllowedAmbassadors('');
       setProhibitQuestions(false);
       setProhibitExclamations(false);
-      setApprovedColors([
-        { hex: '#4F46E5', name: 'Primary Indigo' },
-        { hex: '#1E1B4B', name: 'Deep Navy' },
-        { hex: '#7C3AED', name: 'Accent Violet' },
-        { hex: '#0F172A', name: 'Slate Dark' },
-      ]);
-      setProhibitedColors([
-        { hex: '#00FF00', name: 'Neon Green' },
-        { hex: '#FFFF00', name: 'Harsh Yellow' },
-        { hex: '#FF00FF', name: 'Electric Magenta' },
-      ]);
-      setBannedWords(['guarantee', 'guaranteed', '100% free', 'best in the world', 'miracle']);
+      setApprovedColors([]);
+      setProhibitedColors([]);
+      setBannedWords([]);
       setBuilderTab('form');
       setRawDocumentContent('');
     }
@@ -477,9 +733,23 @@ export default function GuidelinesDirectoryPage() {
   };
 
   const addApprovedColor = () => {
-    if (!newColorHex) return;
-    const name = newColorName.trim() || `Color ${newColorHex.toUpperCase()}`;
-    setApprovedColors(prev => [...prev, { hex: newColorHex, name }]);
+    const rawName = newColorName.trim();
+    let hex = newColorHex;
+    let name = rawName;
+
+    if (rawName) {
+      const resolved = resolveColorToHex(rawName);
+      if (resolved) {
+        hex = resolved;
+        setNewColorHex(resolved);
+      }
+    }
+    if (!hex) return;
+    if (!name) {
+      name = `Color ${hex.toUpperCase()}`;
+    }
+
+    setApprovedColors(prev => [...prev, { hex, name }]);
     setNewColorName('');
   };
 
@@ -488,9 +758,23 @@ export default function GuidelinesDirectoryPage() {
   };
 
   const addProhibitedColor = () => {
-    if (!newProhibitHex) return;
-    const name = newProhibitName.trim() || `Prohibited ${newProhibitHex.toUpperCase()}`;
-    setProhibitedColors(prev => [...prev, { hex: newProhibitHex, name }]);
+    const rawName = newProhibitName.trim();
+    let hex = newProhibitHex;
+    let name = rawName;
+
+    if (rawName) {
+      const resolved = resolveColorToHex(rawName);
+      if (resolved) {
+        hex = resolved;
+        setNewProhibitHex(resolved);
+      }
+    }
+    if (!hex) return;
+    if (!name) {
+      name = `Prohibited ${hex.toUpperCase()}`;
+    }
+
+    setProhibitedColors(prev => [...prev, { hex, name }]);
     setNewProhibitName('');
   };
 
@@ -972,8 +1256,9 @@ export default function GuidelinesDirectoryPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (builderTab === 'document' && !rawDocumentContent.trim()) {
-                        setRawDocumentContent(compileFormToDocumentText());
+                      if (builderTab === 'document') {
+                        // User switched from Document Editor to Visual Builder
+                        parseTextIntoFormState(rawDocumentContent);
                       }
                       setBuilderTab('form');
                     }}
@@ -989,8 +1274,11 @@ export default function GuidelinesDirectoryPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!rawDocumentContent.trim()) {
-                        setRawDocumentContent(compileFormToDocumentText());
+                      if (builderTab === 'form') {
+                        // Sync visual form selections to document editor if document is empty
+                        if (!rawDocumentContent.trim()) {
+                          setRawDocumentContent(compileFormToDocumentText());
+                        }
                       }
                       setBuilderTab('document');
                     }}
@@ -1111,28 +1399,41 @@ export default function GuidelinesDirectoryPage() {
                     <div>
                       <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-1.5">
                         <span>Brand Color Spectrum &amp; Gradient Preview</span>
-                        <span className="font-mono text-xs text-indigo-600 font-bold">{approvedColors.length} Approved Colors</span>
+                        <span className={`font-mono text-xs font-bold ${approvedColors.length > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
+                          {approvedColors.length} Approved Colors
+                        </span>
                       </div>
                       <div
-                        className="h-10 w-full rounded-xl border border-slate-300/80 shadow-inner transition-all flex items-center px-3"
-                        style={{
-                          background: approvedColors.length > 1
-                            ? `linear-gradient(to right, ${approvedColors.map(c => c.hex).join(', ')})`
+                        className={`h-11 w-full rounded-xl border transition-all flex items-center px-3 ${
+                          approvedColors.length === 0
+                            ? 'bg-slate-100/80 border-dashed border-slate-300 justify-center text-slate-400 text-xs font-medium'
+                            : 'border-slate-300/80 shadow-inner'
+                        }`}
+                        style={
+                          approvedColors.length > 1
+                            ? { background: `linear-gradient(to right, ${approvedColors.map(c => c.hex).join(', ')})` }
                             : approvedColors.length === 1
-                            ? approvedColors[0].hex
-                            : '#cbd5e1'
-                        }}
+                            ? { background: approvedColors[0].hex }
+                            : undefined
+                        }
                       >
-                        <div className="flex items-center gap-2 overflow-x-auto py-1">
-                          {approvedColors.map((col, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/90 text-slate-900 shadow-2xs backdrop-blur-xs border border-white/40 shrink-0"
-                            >
-                              {col.hex}
-                            </span>
-                          ))}
-                        </div>
+                        {approvedColors.length === 0 ? (
+                          <span className="flex items-center gap-1.5 text-slate-400 text-xs">
+                            <Palette className="w-3.5 h-3.5" />
+                            No approved brand palette specified in this guideline (0 colors)
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2 overflow-x-auto py-1">
+                            {approvedColors.map((col, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/90 text-slate-900 shadow-2xs backdrop-blur-xs border border-white/40 shrink-0"
+                              >
+                                {col.name ? `${col.name} (${col.hex})` : col.hex}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1148,27 +1449,35 @@ export default function GuidelinesDirectoryPage() {
                           <span className="text-[10px] text-slate-400 font-mono">{approvedColors.length} colors</span>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 min-h-[40px]">
-                          {approvedColors.map((color, index) => (
-                            <div
-                              key={index}
-                              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 shadow-2xs"
-                            >
-                              <span
-                                className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
-                                style={{ backgroundColor: color.hex }}
-                              />
-                              <span className="font-medium">{color.name}</span>
-                              <span className="font-mono text-[10px] text-slate-500">{color.hex}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeApprovedColor(index)}
-                                className="text-slate-400 hover:text-rose-600 transition-colors ml-1"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                        <div className="flex flex-wrap gap-2 min-h-[44px] items-center">
+                          {approvedColors.length === 0 ? (
+                            <div className="w-full py-2.5 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/60 text-center">
+                              <p className="text-xs text-slate-400 italic">
+                                No approved brand colors defined. Add colors below if required.
+                              </p>
                             </div>
-                          ))}
+                          ) : (
+                            approvedColors.map((color, index) => (
+                              <div
+                                key={index}
+                                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-800 shadow-2xs"
+                              >
+                                <span
+                                  className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
+                                  style={{ backgroundColor: color.hex }}
+                                />
+                                <span className="font-medium">{color.name}</span>
+                                <span className="font-mono text-[10px] text-slate-500">{color.hex}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeApprovedColor(index)}
+                                  className="text-slate-400 hover:text-rose-600 transition-colors ml-1"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))
+                          )}
                         </div>
 
                         {/* Add Approved Color */}
@@ -1184,7 +1493,7 @@ export default function GuidelinesDirectoryPage() {
                             type="text"
                             value={newColorName}
                             onChange={e => setNewColorName(e.target.value)}
-                            placeholder="Color label (e.g. Electric Violet)"
+                            placeholder="Color label (e.g. Electric Violet, Teal)"
                             className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-slate-900"
                           />
                           <button
@@ -1208,27 +1517,35 @@ export default function GuidelinesDirectoryPage() {
                           <span className="text-[10px] text-slate-400 font-mono">{prohibitedColors.length} colors</span>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 min-h-[40px]">
-                          {prohibitedColors.map((color, index) => (
-                            <div
-                              key={index}
-                              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50/60 text-xs text-rose-900 shadow-2xs"
-                            >
-                              <span
-                                className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
-                                style={{ backgroundColor: color.hex }}
-                              />
-                              <span className="font-medium">{color.name}</span>
-                              <span className="font-mono text-[10px] text-rose-600">{color.hex}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeProhibitedColor(index)}
-                                className="text-rose-400 hover:text-rose-700 transition-colors ml-1"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                        <div className="flex flex-wrap gap-2 min-h-[44px] items-center">
+                          {prohibitedColors.length === 0 ? (
+                            <div className="w-full py-2.5 px-3 rounded-lg border border-dashed border-rose-200 bg-rose-50/30 text-center">
+                              <p className="text-xs text-rose-400 italic">
+                                No prohibited colors defined. Add colors to ban below.
+                              </p>
                             </div>
-                          ))}
+                          ) : (
+                            prohibitedColors.map((color, index) => (
+                              <div
+                                key={index}
+                                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50/60 text-xs text-rose-900 shadow-2xs"
+                              >
+                                <span
+                                  className="w-3.5 h-3.5 rounded-md border border-black/10 shrink-0"
+                                  style={{ backgroundColor: color.hex }}
+                                />
+                                <span className="font-medium">{color.name}</span>
+                                <span className="font-mono text-[10px] text-rose-600">{color.hex}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeProhibitedColor(index)}
+                                  className="text-rose-400 hover:text-rose-700 transition-colors ml-1"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))
+                          )}
                         </div>
 
                         {/* Add Prohibited Color */}
@@ -1453,19 +1770,49 @@ export default function GuidelinesDirectoryPage() {
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Write or paste any custom brand guideline text, rules, or policies directly. The dual-layer engine will index and extract active rules automatically.
+                        Write or paste custom brand guideline rules. Invalid hex codes are safely annotated and standard color names resolve dynamically.
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setRawDocumentContent(compileFormToDocumentText())}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-bold transition-all shadow-2xs self-start sm:self-auto shrink-0"
-                      title="Regenerate document from visual form selections"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Sync from Visual Form</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const annotated = annotateInvalidHexInText(rawDocumentContent);
+                          setRawDocumentContent(annotated);
+                          parseTextIntoFormState(annotated);
+                          setBuilderTab('form');
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-bold transition-all shadow-2xs"
+                        title="Parse document rules directly into the Visual Form builder"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Parse to Visual Form</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const annotated = annotateInvalidHexInText(rawDocumentContent);
+                          setRawDocumentContent(annotated);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-bold transition-all shadow-2xs"
+                        title="Check for and annotate any malformed hex codes like #GG1234"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Annotate Invalid Hex</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRawDocumentContent(compileFormToDocumentText())}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-bold transition-all shadow-2xs"
+                        title="Regenerate document from visual form selections"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Sync from Visual Form</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="relative">

@@ -78,7 +78,7 @@ def calculate_wcag_contrast(rgb1: Tuple[int, int, int], rgb2: Tuple[int, int, in
 
 def parse_color_rules_from_text(guideline_text: Optional[str]) -> Dict[str, Any]:
     if not guideline_text:
-        return {"banned_colors": [], "has_wcag_rule": False, "has_neon_rule": False, "has_approved_palette": False}
+        return {"banned_colors": [], "approved_colors": [], "has_wcag_rule": False, "has_neon_rule": False, "has_approved_palette": False}
     text_lower = guideline_text.lower()
     banned_colors = []
     
@@ -89,27 +89,64 @@ def parse_color_rules_from_text(guideline_text: Optional[str]) -> Dict[str, Any]
         "yellow": {"name": "Yellow", "rgb": (234, 179, 8), "hex": "#EAB308"},
         "purple": {"name": "Purple", "rgb": (168, 85, 247), "hex": "#A855F7"},
         "orange": {"name": "Orange", "rgb": (249, 115, 22), "hex": "#F97316"},
+        "pink": {"name": "Pink", "rgb": (236, 72, 153), "hex": "#EC4899"},
+        "cyan": {"name": "Cyan", "rgb": (6, 182, 212), "hex": "#06B6D4"},
+        "teal": {"name": "Teal", "rgb": (20, 184, 166), "hex": "#14B8A6"},
+        "navy": {"name": "Navy", "rgb": (30, 27, 75), "hex": "#1E1B4B"},
+        "gold": {"name": "Gold", "rgb": (255, 215, 0), "hex": "#FFD700"},
+        "maroon": {"name": "Maroon", "rgb": (128, 0, 0), "hex": "#800000"},
+        "magenta": {"name": "Magenta", "rgb": (255, 0, 255), "hex": "#FF00FF"},
+        "lime": {"name": "Lime", "rgb": (132, 204, 22), "hex": "#84CC16"},
+        "amber": {"name": "Amber", "rgb": (245, 158, 11), "hex": "#F59E0B"},
+        "neon green": {"name": "Neon Green", "rgb": (0, 255, 0), "hex": "#00FF00"},
+        "neon yellow": {"name": "Neon Yellow", "rgb": (255, 255, 0), "hex": "#FFFF00"},
+        "neon blue": {"name": "Neon Blue", "rgb": (0, 255, 255), "hex": "#00FFFF"},
     }
 
-    for color_name, color_info in color_map.items():
-        pat = rf"(?:no|not|prohibit\w*|ban\w*|avoid)\s+(?:[\w\s,]*\s+)?{color_name}\b|{color_name}\b\s+[\w\s,]*\s+(?:prohibit\w*|ban\w*|not allowed)"
+    # Match banned colors (e.g., "No Red and Blue", "prohibit yellow")
+    for color_name, color_info in sorted(color_map.items(), key=lambda x: len(x[0]), reverse=True):
+        pat = rf"(?:no|not|prohibit\w*|ban\w*|avoid)\s+(?:[\w\s,]*\s+)?{color_name}\b|{color_name}\b\s+[\w\s,]*\s+(?:prohibit\w*|ban\w*|not allowed|should not be used|is prohibited)"
         if re.search(pat, text_lower):
-            banned_colors.append(color_info)
+            if not any(b["hex"].upper() == color_info["hex"].upper() for b in banned_colors):
+                banned_colors.append(color_info)
 
-    hex_prohibits = re.findall(r"#(?:[0-9a-fA-F]{3}){1,2}\b", text_lower)
+    # Valid hex code prohibitions (skip invalid hex like /* [INVALID HEX: ... skipped] */)
+    hex_prohibits = re.findall(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b", text_lower)
     for h in hex_prohibits:
-        if any(w in text_lower for w in ["prohibit", "ban", "avoid", "no "]):
+        if any(w in text_lower for w in ["prohibit", "ban", "avoid", "no ", "not allow"]):
             try:
                 rgb = hex_to_rgb(h)
-                banned_colors.append({"name": f"Hex {h.upper()}", "rgb": rgb, "hex": h.upper()})
+                if not any(b["hex"].upper() == h.upper() for b in banned_colors):
+                    banned_colors.append({"name": f"Hex {h.upper()}", "rgb": rgb, "hex": h.upper()})
             except Exception:
                 pass
 
+    # Approved colors extraction
+    approved_colors = []
+    has_approved_keywords = any(w in text_lower for w in [
+        "approved brand color", "primary brand palette", "approved palette", "official brand palette", "approved brand color palette"
+    ])
+    if has_approved_keywords:
+        for line in text_lower.splitlines():
+            if any(w in line for w in ["approved", "primary brand", "official brand", "wanted"]):
+                for color_name, color_info in sorted(color_map.items(), key=lambda x: len(x[0]), reverse=True):
+                    if re.search(rf"\b{color_name}\b", line):
+                        if not any(a["hex"].upper() == color_info["hex"].upper() for a in approved_colors):
+                            approved_colors.append(color_info)
+                for h in re.findall(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b", line):
+                    try:
+                        rgb = hex_to_rgb(h)
+                        if not any(a["hex"].upper() == h.upper() for a in approved_colors):
+                            approved_colors.append({"name": f"Hex {h.upper()}", "rgb": rgb, "hex": h.upper()})
+                    except Exception:
+                        pass
+
     return {
         "banned_colors": banned_colors,
+        "approved_colors": approved_colors,
         "has_wcag_rule": any(w in text_lower for w in ["wcag", "contrast", "accessibility", "iso/iec 40500"]),
         "has_neon_rule": any(w in text_lower for w in ["neon", "fluorescent", "saturated"]),
-        "has_approved_palette": any(w in text_lower for w in ["approved brand color", "primary brand palette", "approved palette", "official brand palette"])
+        "has_approved_palette": bool(approved_colors) or has_approved_keywords
     }
 
 
@@ -200,8 +237,9 @@ class VisualBrandEngine:
             # 3. Check if significant color matches approved brand palette
             # Only enforce if standard rules enabled, or guideline explicitly defines an approved palette, or no custom guideline
             if (include_standard_rules or rules["has_approved_palette"] or not guidelines_text) and pct > 15.0:
+                palette_to_check = rules.get("approved_colors") if (rules.get("approved_colors") and len(rules["approved_colors"]) > 0) else self.approved_palette
                 closest_approved = min(
-                    self.approved_palette,
+                    palette_to_check,
                     key=lambda a: color_distance(rgb, a["rgb"])
                 )
                 min_dist = color_distance(rgb, closest_approved["rgb"])
@@ -211,7 +249,7 @@ class VisualBrandEngine:
                         "severity": "warning",
                         "flagged_text": f"Unapproved Dominant Color ({hex_code})",
                         "rule_citation": "Section 12.1: Approved Brand Color Palette",
-                        "explanation": f"Dominant color {hex_code} ({pct}% coverage) deviates from the official brand palette ({', '.join(p['hex'] for p in self.approved_palette[:4])}).",
+                        "explanation": f"Dominant color {hex_code} ({pct}% coverage) deviates from the official brand palette ({', '.join(p['hex'] for p in palette_to_check[:4])}).",
                         "suggested_fix": f"Realign with approved brand color '{closest_approved['name']}' ({closest_approved['hex']}).",
                         "confidence": "high"
                     })
