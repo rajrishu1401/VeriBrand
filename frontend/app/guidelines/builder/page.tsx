@@ -414,17 +414,17 @@ function PolicyBuilderInner() {
       const trimmed = line.trim();
       const lLower = trimmed.toLowerCase();
 
-      // Heading detection to switch currentSectionBlock
-      if (/12\.1\s+approved|approved\s+(?:brand\s+)?color|(?:brand\s+)?color\s+palette|preferred\s+color|official\s+palette/i.test(lLower)) {
+      // Heading detection to switch currentSectionBlock - supports both US "color" and UK "colour", as well as palette/swatches/hues/shades
+      if (/(?:approved|official|primary|preferred|wanted)\s+(?:brand\s+)?colou?r|(?:brand\s+)?colou?r\s+(?:palette|swatches|hues|shades)|official\s+palette|12\.1\s+approved/i.test(lLower)) {
         currentSectionBlock = 'approved_colors';
-      } else if (/prohibited\s+(?:background\s+|poster\s+)?color|banned\s+color|unwanted\s+color|avoid\s+color/i.test(lLower)) {
+      } else if (/(?:prohibited|banned|unwanted|avoid|forbidden|disallowed|restricted|no)\s+(?:background\s+|poster\s+|brand\s+)?colou?rs?|banned\s+colou?rs?|unwanted\s+colou?rs?|avoid\s+colou?rs?/i.test(lLower)) {
         currentSectionBlock = 'prohibited_colors';
       } else if (/^section\s+(?!12\b)\d+/i.test(trimmed) || /^appendix/i.test(trimmed)) {
         currentSectionBlock = 'none';
       }
 
-      const isExplicitBanned = lLower.includes('prohibit') || lLower.includes('avoid') || lLower.includes('ban') || lLower.includes('never') || lLower.includes('unwanted');
-      const isExplicitApproved = lLower.includes('approved') || lLower.includes('wanted') || lLower.includes('allow') || lLower.includes('restricted to') || lLower.includes('primary');
+      const isExplicitBanned = /prohibit|avoid|ban\b|banned|never|unwanted|disallow|forbid|restrict|no\s+/i.test(lLower);
+      const isExplicitApproved = /approv|wanted|allow|restricted to|primary|permit|authoriz|prefer/i.test(lLower);
 
       const labeledMatch = trimmed.match(/^(?:[-*•]\s*)?([A-Za-z0-9\s&/-]+?)\s*:\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b/);
       const banLabelMatch = trimmed.match(/^(?:[-*•]\s*)?([A-Za-z0-9\s&/-]+?)\s*\(/);
@@ -475,14 +475,14 @@ function PolicyBuilderInner() {
 
     STANDARD_SHADE_RANGES.forEach(range => {
       const fam = range.family;
-      const banRegex = new RegExp(`(?:no|not|prohibit\\w*|ban\\w*|avoid)\\s+[^.\\n]*?(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum|${fam}\\s+shades?|shades?\\s+of\\s+${fam})|(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum)\\s+[^.\\n]*?(?:prohibit\\w*|ban\\w*|not allowed|avoid)`, 'i');
+      const banRegex = new RegExp(`(?:no|not|prohibit\\w*|ban\\w*|avoid|disallow\\w*)\\s+[^.\\n]*?(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|entire\\s+${fam}\\s+(?:spectrum|range|family)|${fam}\\s+(?:spectrum|shades?|colou?rs?)|shades?\\s+of\\s+${fam})|(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+(?:spectrum|shades?|colou?rs?))\\s+[^.\\n]*?(?:prohibit\\w*|ban\\w*|not allowed|avoid|disallow\\w*)`, 'i');
       if (banRegex.test(textClean)) {
         if (!parsedProhibitedRanges.some(r => r.id === range.id)) {
           parsedProhibitedRanges.push(range);
         }
       }
 
-      const appRegex = new RegExp(`(?:approved|wanted|allow\\w*|permitted)\\s+[^.\\n]*?(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum|${fam}\\s+shades?|shades?\\s+of\\s+${fam})|(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+spectrum)\\s+[^.\\n]*?(?:approved|allowed|permitted|wanted)`, 'i');
+      const appRegex = new RegExp(`(?:approved|wanted|allow\\w*|permitted|preferred)\\s+[^.\\n]*?(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|entire\\s+${fam}\\s+(?:spectrum|range|family)|${fam}\\s+(?:spectrum|shades?|colou?rs?)|shades?\\s+of\\s+${fam})|(?:all\\s+shades?\\s+of\\s+${fam}|whole\\s+shade\\s+of\\s+${fam}|${fam}\\s+(?:spectrum|shades?|colou?rs?))\\s+[^.\\n]*?(?:approved|allowed|permitted|wanted|preferred)`, 'i');
       if (appRegex.test(textClean)) {
         if (!parsedApprovedRanges.some(r => r.id === range.id)) {
           parsedApprovedRanges.push(range);
@@ -590,7 +590,7 @@ function PolicyBuilderInner() {
       `- Text overlaid on image backgrounds MUST meet ISO/IEC 40500 WCAG 2.1 AA accessibility standards (minimum 4.5:1 contrast ratio).`,
     ].join('\n');
 
-    const sec12Match = originalText.match(/(?:SECTION\s+12[^\n]*\n[-=\s]*\n|12\.1\s+Approved\s+Brand\s+Color\s+Palette)/i);
+    const sec12Match = originalText.match(/(?:SECTION\s+12[^\n]*\n[-=\s]*\n|(?:12\.1\s+)?(?:approved\s+)?brand\s+colou?r\s+palette|visual\s+brand\s+&\s+asset)/i);
     if (sec12Match && sec12Match.index !== undefined) {
       const afterMatch = originalText.slice(sec12Match.index).search(/\n\s*(?:APPENDIX|SECTION\s+13)/i);
       if (afterMatch !== -1) {
