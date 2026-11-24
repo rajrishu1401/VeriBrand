@@ -941,98 +941,73 @@ export default function GuidelinesDirectoryPage() {
 
     const textClean = annotateInvalidHexInText(text);
     const textLower = textClean.toLowerCase();
+    const lines = textClean.split(/\r?\n/);
 
-    // 1. Prohibited Colors Extraction
-    const parsedProhibited: { hex: string; name: string }[] = [];
-    const prohibitLines = textClean.split('\n').filter(line => {
-      const l = line.toLowerCase();
-      return l.includes('no ') || l.includes('prohibit') || l.includes('ban') || l.includes('not allow') || l.includes('avoid');
-    });
-
-    Object.keys(STANDARD_COLOR_MAP).forEach(colorKey => {
-      const regex1 = new RegExp(`(?:no|not|prohibit\\w*|ban\\w*|avoid)\\s+[^.\\n]*?\\b${colorKey}\\b`, 'i');
-      const regex2 = new RegExp(`\\b${colorKey}\\b[^.\\n]*?(?:prohibit\\w*|ban\\w*|not allowed|should not be used|is prohibited)`, 'i');
-
-      if (regex1.test(textClean) || regex2.test(textClean)) {
-        const hex = STANDARD_COLOR_MAP[colorKey];
-        const displayName = colorKey.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        if (!parsedProhibited.some(p => p.hex.toUpperCase() === hex.toUpperCase())) {
-          parsedProhibited.push({ hex, name: displayName });
-        }
-      }
-    });
-
-    // Check for explicit hex codes in prohibition lines
-    const hexRegex = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/g;
-    prohibitLines.forEach(line => {
-      let match;
-      while ((match = hexRegex.exec(line)) !== null) {
-        const h = match[0].toUpperCase();
-        if (!parsedProhibited.some(p => p.hex === h)) {
-          const nameMatch = line.match(new RegExp(`([A-Za-z\\s]+?)\\s*\\(${h}\\)`, 'i'));
-          const cName = nameMatch ? nameMatch[1].trim() : `Hex ${h}`;
-          parsedProhibited.push({ hex: h, name: cName });
-        }
-      }
-    });
-
-    // Sort prohibited colors in the order they appear in the guideline text
-    parsedProhibited.sort((a, b) => {
-      const idxA = textLower.indexOf(a.name.toLowerCase());
-      const idxB = textLower.indexOf(b.name.toLowerCase());
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      return 0;
-    });
-
-    setProhibitedColors(parsedProhibited);
-
-    // 2. Approved Colors Extraction
+    // 1. Color Extraction with Section Block Tracking
     const parsedApproved: { hex: string; name: string }[] = [];
-    const approvedLines = textClean.split('\n').filter(line => {
-      const l = line.toLowerCase();
-      return (
-        l.includes('approved') ||
-        l.includes('official brand') ||
-        l.includes('primary brand palette') ||
-        l.includes('brand color palette') ||
-        l.includes('approved palette') ||
-        l.includes('official palette')
-      );
-    });
+    const parsedProhibited: { hex: string; name: string }[] = [];
+    let currentSectionBlock: 'approved_colors' | 'prohibited_colors' | 'none' = 'none';
 
-    if (approvedLines.length > 0) {
-      approvedLines.forEach(line => {
-        let match;
-        while ((match = hexRegex.exec(line)) !== null) {
-          const h = match[0].toUpperCase();
-          if (!parsedApproved.some(a => a.hex === h)) {
-            const nameMatch = line.match(new RegExp(`([A-Za-z\\s]+?)\\s*\\(${h}\\)`, 'i'));
-            const cName = nameMatch ? nameMatch[1].trim() : `Hex ${h}`;
-            parsedApproved.push({ hex: h, name: cName });
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      const lLower = trimmed.toLowerCase();
+
+      // Heading detection to switch currentSectionBlock
+      if (/12\.1\s+approved|approved\s+(?:brand\s+)?color|(?:brand\s+)?color\s+palette|preferred\s+color|official\s+palette/i.test(lLower)) {
+        currentSectionBlock = 'approved_colors';
+      } else if (/prohibited\s+(?:background\s+|poster\s+)?color|banned\s+color|unwanted\s+color|avoid\s+color/i.test(lLower)) {
+        currentSectionBlock = 'prohibited_colors';
+      } else if (/^section\s+(?!12\b)\d+/i.test(trimmed) || /^appendix/i.test(trimmed)) {
+        currentSectionBlock = 'none';
+      }
+
+      const isExplicitBanned = lLower.includes('prohibit') || lLower.includes('avoid') || lLower.includes('ban') || lLower.includes('never') || lLower.includes('unwanted');
+      const isExplicitApproved = lLower.includes('approved') || lLower.includes('wanted') || lLower.includes('allow') || lLower.includes('restricted to') || lLower.includes('primary');
+
+      const labeledMatch = trimmed.match(/^(?:[-*•]\s*)?([A-Za-z0-9\s&/-]+?)\s*:\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b/);
+      const banLabelMatch = trimmed.match(/^(?:[-*•]\s*)?([A-Za-z0-9\s&/-]+?)\s*\(/);
+      const lineHexes = trimmed.match(/#([0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b/g) || [];
+
+      lineHexes.forEach(h => {
+        const cleanH = h.toUpperCase();
+        let extractedLabel = '';
+        if (labeledMatch && labeledMatch[2].toUpperCase() === cleanH) {
+          extractedLabel = labeledMatch[1].replace(/^[-*•]\s*/, '').trim();
+        } else if (banLabelMatch) {
+          extractedLabel = banLabelMatch[1].replace(/^[-*•]\s*/, '').trim();
+        }
+
+        if (isExplicitBanned || currentSectionBlock === 'prohibited_colors') {
+          if (!parsedProhibited.some(c => c.hex === cleanH)) {
+            parsedProhibited.push({
+              hex: cleanH,
+              name: extractedLabel || (cleanH === '#FF0000' ? 'Saturated Red' : cleanH === '#00FF00' ? 'Neon Green' : cleanH === '#FF00FF' ? 'Fluorescent Magenta' : 'Banned Swatch')
+            });
+          }
+        } else if (isExplicitApproved || currentSectionBlock === 'approved_colors') {
+          if (!parsedApproved.some(c => c.hex === cleanH)) {
+            parsedApproved.push({
+              hex: cleanH,
+              name: extractedLabel || (cleanH === '#1E1B4B' ? 'Deep Navy' : cleanH === '#4F46E5' ? 'Primary Brand Indigo' : cleanH === '#7C3AED' ? 'Accent Violet' : cleanH === '#1E293B' ? 'Slate Dark' : cleanH === '#F8FAFC' ? 'Surface Light' : 'Brand Swatch')
+            });
           }
         }
+      });
 
-        Object.keys(STANDARD_COLOR_MAP).forEach(colorKey => {
-          const pat = new RegExp(`\\b${colorKey}\\b`, 'i');
-          if (pat.test(line)) {
-            const hex = STANDARD_COLOR_MAP[colorKey];
-            const displayName = colorKey.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            if (!parsedApproved.some(a => a.hex.toUpperCase() === hex.toUpperCase())) {
-              parsedApproved.push({ hex, name: displayName });
+      // Named colors in prohibition context
+      if (isExplicitBanned || currentSectionBlock === 'prohibited_colors') {
+        ['neon green', 'electric yellow', 'red', 'yellow', 'blue', 'orange', 'pink'].forEach(col => {
+          if (new RegExp(`\\b${col}\\b`, 'i').test(trimmed) && !lineHexes.length) {
+            const hex = resolveColorToHex(col);
+            if (hex && !parsedProhibited.some(c => c.hex === hex)) {
+              parsedProhibited.push({ hex, name: col.replace(/\b\w/g, l => l.toUpperCase()) });
             }
           }
         });
-      });
-    }
-
-    // Sort approved colors in the order they appear in the guideline text
-    parsedApproved.sort((a, b) => {
-      const idxA = textLower.indexOf(a.name.toLowerCase());
-      const idxB = textLower.indexOf(b.name.toLowerCase());
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      return 0;
+      }
     });
 
+    setProhibitedColors(parsedProhibited);
     setApprovedColors(parsedApproved);
 
     // 2.1 Color Spectrum / Shade Range Extraction
@@ -1058,33 +1033,46 @@ export default function GuidelinesDirectoryPage() {
     setProhibitedRanges(parsedProhibitedRanges);
     setApprovedRanges(parsedApprovedRanges);
 
-    // 3. Prohibited Symbols & Punctuation
+    // 3. Prohibited Symbols & Punctuation (Context-Aware to prevent false bans on '%', '#', '@')
     const parsedSymbols: string[] = [];
-    if (textLower.includes('question') || textClean.includes('?')) {
+    if (/(?:no\s+multiple\s+question|question\s+mark\s+is\s+prohibited|no\s+question|ban\w*\s+question|avoid\s+question)/i.test(textClean)) {
       parsedSymbols.push('?');
     }
-    if (textLower.includes('exclam') || textLower.includes('exclai') || textClean.includes('!')) {
+    if (/(?:no\s+multiple\s+exclamation|exclamation\s+mark\s+is\s+prohibited|no\s+exclamation|ban\w*\s+exclamation|avoid\s+exclamation|maximum\s+one\s+exclamation)/i.test(textClean)) {
       parsedSymbols.push('!');
     }
-    if (textLower.includes('100%') || textClean.includes('%')) {
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:percent(?:age)?|\s+%\b)/i.test(textClean)) {
       parsedSymbols.push('%');
     }
-    if (textLower.includes('currency') || textClean.includes('$')) {
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:currency|dollar|\s+\$\b)/i.test(textClean)) {
       parsedSymbols.push('$');
     }
-    if (textLower.includes('hashtag') || textClean.includes('#')) {
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:hashtag|\s+#\s)/i.test(textClean)) {
       parsedSymbols.push('#');
     }
-    if (textLower.includes('asterisk') || textClean.includes('*')) {
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:asterisk|\s+\*\b)/i.test(textClean)) {
       parsedSymbols.push('*');
     }
-    if (textLower.includes('mention') || textClean.includes('@')) {
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:mention|social\s+handle|\s+@\s)/i.test(textClean)) {
       parsedSymbols.push('@');
     }
-    if (textLower.includes('emoji')) {
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|no)\s+[^.\n]*?emoji/i.test(textClean)) {
       parsedSymbols.push('Emoji');
     }
     setProhibitedSymbols(parsedSymbols);
+
+    // Auto-detect governance modes
+    const hasApprovedColors = parsedApproved.length > 0 || parsedApprovedRanges.length > 0;
+    const hasBannedColors = parsedProhibited.length > 0 || parsedProhibitedRanges.length > 0;
+    if (textLower.includes('strict allowlist') || (hasApprovedColors && !hasBannedColors)) {
+      setColorMode('approved');
+    } else if (textLower.includes('strict blocklist') || (hasBannedColors && !hasApprovedColors)) {
+      setColorMode('prohibited');
+    } else {
+      setColorMode('tiered');
+    }
+
+    setSymbolMode(parsedSymbols.length > 0 ? 'prohibited' : 'tiered');
 
     // 4. Tone Governance
     const parsedProhibitedTones: string[] = [];
@@ -1354,6 +1342,57 @@ export default function GuidelinesDirectoryPage() {
     setBannedWords(prev => prev.filter(w => w !== word));
   };
 
+  const mergeVisualRulesIntoDocument = (originalText: string): string => {
+    const aNames = approvedColors.map(c => `- ${c.name}: ${c.hex}`).join('\n');
+    const aRangeNames = approvedRanges.map(r => `- ${r.name} (Hue ${r.hueMin}°–${r.hueMax}°)`).join('\n');
+    const allApproved = [aNames, aRangeNames].filter(Boolean).join('\n');
+
+    const pNames = prohibitedColors.map(c => `- ${c.name}: ${c.hex}`).join('\n');
+    const pRangeNames = prohibitedRanges.map(r => `- ${r.name} (Hue ${r.hueMin}°–${r.hueMax}°)`).join('\n');
+    const allProhibited = [pNames, pRangeNames].filter(Boolean).join('\n');
+
+    let modeDesc = '';
+    if (colorMode === 'approved') {
+      modeDesc = 'Restricted to approved brand colors (Strict Allowlist). All unlisted colors are prohibited.';
+    } else if (colorMode === 'prohibited') {
+      modeDesc = 'Prohibited poster colors & shade spectrums (Strict Blocklist). All unlisted colors are approved.';
+    } else {
+      modeDesc = 'Preferred colors are approved, prohibited shades are banned, and unlisted colors are considered neutral.';
+    }
+
+    const updatedVisualBlock = [
+      `SECTION 12: VISUAL BRAND & ASSET GUIDELINES (Updated v${policyVersion})`,
+      `-------------------------------------------`,
+      ``,
+      `12.1 Approved Brand Color Palette & Governance (${colorMode.toUpperCase()} MODE)`,
+      modeDesc,
+      ``,
+      `Approved Brand Palette (Wanted):`,
+      allApproved || '- None specified',
+      ``,
+      `Prohibited Background & Poster Colors (Unwanted):`,
+      allProhibited || '- None specified',
+      ``,
+      `12.2 Accessibility & WCAG Contrast Standards`,
+      `- Text overlaid on image backgrounds MUST meet ISO/IEC 40500 WCAG 2.1 AA accessibility standards (minimum 4.5:1 contrast ratio).`,
+    ].join('\n');
+
+    const sec12Match = originalText.match(/(?:SECTION\s+12[^\n]*\n[-=\s]*\n|12\.1\s+Approved\s+Brand\s+Color\s+Palette)/i);
+    if (sec12Match && sec12Match.index !== undefined) {
+      const afterMatch = originalText.slice(sec12Match.index).search(/\n\s*(?:APPENDIX|SECTION\s+13)/i);
+      if (afterMatch !== -1) {
+        const prefix = originalText.slice(0, sec12Match.index);
+        const suffix = originalText.slice(sec12Match.index + afterMatch);
+        return `${prefix.trimEnd()}\n\n${updatedVisualBlock}\n\n${suffix.trimStart()}`;
+      } else {
+        const prefix = originalText.slice(0, sec12Match.index);
+        return `${prefix.trimEnd()}\n\n${updatedVisualBlock}\n`;
+      }
+    }
+
+    return `${originalText.trimEnd()}\n\n---\n\n${updatedVisualBlock}\n`;
+  };
+
   const handleSavePolicy = async () => {
     if (!policyTitle.trim()) {
       setBuilderError('Please provide a policy title');
@@ -1362,9 +1401,16 @@ export default function GuidelinesDirectoryPage() {
     setBuilderSubmitting(true);
     setBuilderError(null);
 
-    const finalContent = builderTab === 'document' && rawDocumentContent.trim()
-      ? rawDocumentContent.trim()
-      : compileFormToDocumentText();
+    let finalContent = rawDocumentContent.trim();
+    if (builderTab === 'document') {
+      finalContent = rawDocumentContent.trim();
+    } else {
+      if (finalContent.length > 200) {
+        finalContent = mergeVisualRulesIntoDocument(finalContent);
+      } else {
+        finalContent = compileFormToDocumentText();
+      }
+    }
 
     try {
       const payload = {
@@ -1402,6 +1448,7 @@ export default function GuidelinesDirectoryPage() {
         prohibit_exclamations: prohibitedSymbols.includes('!'),
         prohibit_100_percent: bannedWords.includes('100%') || prohibitedSymbols.includes('%'),
         raw_content: finalContent,
+        raw_text: finalContent,
       };
 
       const res = await fetch(`${API_BASE}/api/guidelines/create`, {

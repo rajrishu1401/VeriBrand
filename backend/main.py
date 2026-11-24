@@ -144,6 +144,7 @@ class GuidelineCreateRequest(BaseModel):
     prohibit_competitor_claims: bool = False
     custom_rules_text: Optional[str] = None
     raw_content: Optional[str] = None
+    raw_text: Optional[str] = None
 
 
 class AuditFlag(BaseModel):
@@ -612,8 +613,8 @@ def parse_rules_from_text(text: str) -> List[ExtractedRuleItem]:
     import re
     extracted = []
     
-    # 1. Try numbered rules (e.g. 1. 100% should not be written.)
-    numbered_matches = re.findall(r"^\s*(\d+)[\.\)]\s*(.+)$", text, re.MULTILINE)
+    # 1. Try numbered rules (e.g. 1. 100% should not be written or 2.1 Absolute claims)
+    numbered_matches = re.findall(r"^\s*(\d+(?:\.\d+)*)[\.\)]\s*(.+)$", text, re.MULTILINE)
     if numbered_matches:
         for num, r_text in numbered_matches:
             clean_r = r_text.strip()
@@ -718,14 +719,16 @@ async def get_guideline_detail(guideline_id: str):
 
 
 @app.post("/api/guidelines/create")
+@app.post("/api/create-guideline")
 async def create_guideline_endpoint(req: GuidelineCreateRequest):
     """
     Brand Policy Studio: Create or version brand guidelines directly from web form.
     Stores policy in DB, indexes vector embeddings, and extracts rule matrix.
     """
     try:
-        if req.raw_content and req.raw_content.strip():
-            full_guideline_content = req.raw_content.strip()
+        raw_input = req.raw_content or req.raw_text
+        if raw_input and raw_input.strip():
+            full_guideline_content = raw_input.strip()
         else:
             sections = []
             sections.append(f"{req.title.upper()} — BRAND GOVERNANCE POLICY")

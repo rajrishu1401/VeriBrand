@@ -400,57 +400,72 @@ function PolicyBuilderInner() {
   };
 
   const parseTextIntoFormState = (text: string) => {
+    if (!text || !text.trim()) return;
     const textClean = text.replace(/\/\*.*?\*\//g, '');
     const textLower = textClean.toLowerCase();
+    const lines = textClean.split(/\r?\n/);
 
-    // 1. Color Extraction
+    // 1. Color Extraction with Section Block Tracking
     const parsedApproved: { hex: string; name: string }[] = [];
     const parsedProhibited: { hex: string; name: string }[] = [];
+    let currentSectionBlock: 'approved_colors' | 'prohibited_colors' | 'punctuation' | 'tones' | 'none' = 'none';
 
-    const hexMatches = textClean.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g) || [];
-    const foundApprovedHexes = new Set<string>();
-    const foundBannedHexes = new Set<string>();
-
-    const lines = textClean.split(/\r?\n/);
     lines.forEach(line => {
-      const lLower = line.toLowerCase();
-      const isBannedLine = lLower.includes('prohibit') || lLower.includes('avoid') || lLower.includes('ban') || lLower.includes('never') || lLower.includes('unwanted');
-      const isApprovedLine = lLower.includes('approved') || lLower.includes('wanted') || lLower.includes('allow') || lLower.includes('restricted to') || lLower.includes('primary');
+      const trimmed = line.trim();
+      const lLower = trimmed.toLowerCase();
 
-      const lineHexes = line.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g) || [];
+      // Heading detection to switch currentSectionBlock
+      if (/12\.1\s+approved|approved\s+(?:brand\s+)?color|(?:brand\s+)?color\s+palette|preferred\s+color|official\s+palette/i.test(lLower)) {
+        currentSectionBlock = 'approved_colors';
+      } else if (/prohibited\s+(?:background\s+|poster\s+)?color|banned\s+color|unwanted\s+color|avoid\s+color/i.test(lLower)) {
+        currentSectionBlock = 'prohibited_colors';
+      } else if (/^section\s+(?!12\b)\d+/i.test(trimmed) || /^appendix/i.test(trimmed)) {
+        currentSectionBlock = 'none';
+      }
+
+      const isExplicitBanned = lLower.includes('prohibit') || lLower.includes('avoid') || lLower.includes('ban') || lLower.includes('never') || lLower.includes('unwanted');
+      const isExplicitApproved = lLower.includes('approved') || lLower.includes('wanted') || lLower.includes('allow') || lLower.includes('restricted to') || lLower.includes('primary');
+
+      const labeledMatch = trimmed.match(/^(?:[-*•]\s*)?([A-Za-z0-9\s&/-]+?)\s*:\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b/);
+      const banLabelMatch = trimmed.match(/^(?:[-*•]\s*)?([A-Za-z0-9\s&/-]+?)\s*\(/);
+      const lineHexes = trimmed.match(/#([0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b/g) || [];
+
       lineHexes.forEach(h => {
         const cleanH = h.toUpperCase();
-        if (isBannedLine) foundBannedHexes.add(cleanH);
-        else if (isApprovedLine) foundApprovedHexes.add(cleanH);
-      });
+        let extractedLabel = '';
+        if (labeledMatch && labeledMatch[2].toUpperCase() === cleanH) {
+          extractedLabel = labeledMatch[1].replace(/^[-*•]\s*/, '').trim();
+        } else if (banLabelMatch) {
+          extractedLabel = banLabelMatch[1].replace(/^[-*•]\s*/, '').trim();
+        }
 
-      ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'neon green', 'electric yellow'].forEach(col => {
-        if (new RegExp(`\\b${col}\\b`, 'i').test(line)) {
-          const hex = resolveColorToHex(col);
-          if (hex) {
-            const capitalized = col.replace(/\b\w/g, l => l.toUpperCase());
-            if (isBannedLine) {
-              if (!parsedProhibited.some(c => c.name.toLowerCase() === col.toLowerCase())) {
-                parsedProhibited.push({ hex, name: capitalized });
-              }
-            } else if (isApprovedLine) {
-              if (!parsedApproved.some(c => c.name.toLowerCase() === col.toLowerCase())) {
-                parsedApproved.push({ hex, name: capitalized });
-              }
-            }
+        if (isExplicitBanned || currentSectionBlock === 'prohibited_colors') {
+          if (!parsedProhibited.some(c => c.hex === cleanH)) {
+            parsedProhibited.push({
+              hex: cleanH,
+              name: extractedLabel || (cleanH === '#FF0000' ? 'Saturated Red' : cleanH === '#00FF00' ? 'Neon Green' : cleanH === '#FF00FF' ? 'Fluorescent Magenta' : 'Banned Swatch')
+            });
+          }
+        } else if (isExplicitApproved || currentSectionBlock === 'approved_colors') {
+          if (!parsedApproved.some(c => c.hex === cleanH)) {
+            parsedApproved.push({
+              hex: cleanH,
+              name: extractedLabel || (cleanH === '#1E1B4B' ? 'Deep Navy' : cleanH === '#4F46E5' ? 'Primary Brand Indigo' : cleanH === '#7C3AED' ? 'Accent Violet' : cleanH === '#1E293B' ? 'Slate Dark' : cleanH === '#F8FAFC' ? 'Surface Light' : 'Brand Swatch')
+            });
           }
         }
       });
-    });
 
-    foundApprovedHexes.forEach(hex => {
-      if (!parsedApproved.some(c => c.hex === hex)) {
-        parsedApproved.push({ hex, name: hex === '#1E1B4B' ? 'TechCorp Navy' : hex === '#4F46E5' ? 'TechCorp Indigo' : 'Brand Swatch' });
-      }
-    });
-    foundBannedHexes.forEach(hex => {
-      if (!parsedProhibited.some(c => c.hex === hex)) {
-        parsedProhibited.push({ hex, name: hex === '#00FF00' ? 'Neon Green' : hex === '#FFFF00' ? 'Electric Yellow' : 'Banned Swatch' });
+      // Named colors in prohibition context
+      if (isExplicitBanned || currentSectionBlock === 'prohibited_colors') {
+        ['neon green', 'electric yellow', 'red', 'yellow', 'blue', 'orange', 'pink'].forEach(col => {
+          if (new RegExp(`\\b${col}\\b`, 'i').test(trimmed) && !lineHexes.length) {
+            const hex = resolveColorToHex(col);
+            if (hex && !parsedProhibited.some(c => c.hex === hex)) {
+              parsedProhibited.push({ hex, name: col.replace(/\b\w/g, l => l.toUpperCase()) });
+            }
+          }
+        });
       }
     });
 
@@ -491,23 +506,40 @@ function PolicyBuilderInner() {
       setColorMode('tiered');
     }
 
-    // 3. Symbols
+    // 3. Symbols & Punctuation (Context-Aware to prevent false bans on '%', '#', '@')
     const pSymbols: string[] = [];
     const aSymbols: string[] = [];
-    if (textLower.includes('question') || textClean.includes('?')) pSymbols.push('?');
-    if (textLower.includes('exclamation') || textClean.includes('!')) pSymbols.push('!');
-    if (textClean.includes('%') || textLower.includes('percent')) pSymbols.push('%');
-    if (textClean.includes('$') || textLower.includes('currency') || textLower.includes('dollar')) pSymbols.push('$');
-    if (textClean.includes('*') || textLower.includes('asterisk')) pSymbols.push('*');
-    if (textClean.includes('#') || textLower.includes('hashtag')) pSymbols.push('#');
-    if (textClean.includes('@') || textLower.includes('mention')) pSymbols.push('@');
-    if (textLower.includes('emoji')) pSymbols.push('Emoji');
+
+    if (/(?:no\s+multiple\s+exclamation|exclamation\s+mark\s+is\s+prohibited|no\s+exclamation|ban\w*\s+exclamation|avoid\s+exclamation|maximum\s+one\s+exclamation)/i.test(textClean)) {
+      pSymbols.push('!');
+    }
+    if (/(?:no\s+multiple\s+question|question\s+mark\s+is\s+prohibited|no\s+question|ban\w*\s+question|avoid\s+question)/i.test(textClean)) {
+      pSymbols.push('?');
+    }
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:percent(?:age)?|\s+%\b)/i.test(textClean)) {
+      pSymbols.push('%');
+    }
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:currency|dollar|\s+\$\b)/i.test(textClean)) {
+      pSymbols.push('$');
+    }
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:asterisk|\s+\*\b)/i.test(textClean)) {
+      pSymbols.push('*');
+    }
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:hashtag|\s+#\s)/i.test(textClean)) {
+      pSymbols.push('#');
+    }
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|disallow\w*)\s+[^.\n]*?(?:mention|social\s+handle|\s+@\s)/i.test(textClean)) {
+      pSymbols.push('@');
+    }
+    if (/(?:prohibit\w*|ban\w*|never\s+use|avoid|no)\s+[^.\n]*?emoji/i.test(textClean)) {
+      pSymbols.push('Emoji');
+    }
 
     setProhibitedSymbols(pSymbols);
     setApprovedSymbols(aSymbols);
     setSymbolMode(pSymbols.length > 0 && aSymbols.length > 0 ? 'tiered' : aSymbols.length > 0 ? 'approved' : 'prohibited');
 
-    // 4. Persons / Ambasssadors
+    // 4. Persons / Ambassadors
     const pPersons: string[] = [];
     const aPersons: string[] = [];
     if (textLower.includes('roshan') || textLower.includes('hritik')) aPersons.push('Hritik Roshan');
@@ -516,10 +548,62 @@ function PolicyBuilderInner() {
     setPersonMode(aPersons.length > 0 && pPersons.length > 0 ? 'tiered' : aPersons.length > 0 ? 'approved' : 'prohibited');
 
     // 5. Baseline rules
-    setProhibit100Claims(textLower.includes('100%'));
-    setProhibitGuarantees(textLower.includes('guarantee'));
-    setProhibitCompetitorClaims(textLower.includes('competitor'));
-    setRequireTermsDisclaimer(textLower.includes('terms and conditions') || textLower.includes('disclaimer'));
+    setProhibit100Claims(/(?:never\s+use|prohibit\w*|avoid|ban\w*)\s+[^.\n]*?100%/i.test(textClean) || textLower.includes('"100%"'));
+    setProhibitGuarantees(/(?:never\s+use|prohibit\w*|avoid|ban\w*)\s+[^.\n]*?guarantee/i.test(textClean) || textLower.includes('"guarantee"'));
+    setProhibitCompetitorClaims(/(?:never\s+name|prohibit\w*|avoid|ban\w*)\s+[^.\n]*?competitor/i.test(textClean));
+    setRequireTermsDisclaimer(textLower.includes('terms and conditions') || textLower.includes('terms apply') || textLower.includes('disclaimer'));
+  };
+
+  // Merge visual rules into existing document without losing Sections 1–11
+  const mergeVisualRulesIntoDocument = (originalText: string): string => {
+    const aNames = approvedColors.map(c => `- ${c.name}: ${c.hex}`).join('\n');
+    const aRangeNames = approvedRanges.map(r => `- ${r.name} (Hue ${r.hueMin}°–${r.hueMax}°)`).join('\n');
+    const allApproved = [aNames, aRangeNames].filter(Boolean).join('\n');
+
+    const pNames = prohibitedColors.map(c => `- ${c.name}: ${c.hex}`).join('\n');
+    const pRangeNames = prohibitedRanges.map(r => `- ${r.name} (Hue ${r.hueMin}°–${r.hueMax}°)`).join('\n');
+    const allProhibited = [pNames, pRangeNames].filter(Boolean).join('\n');
+
+    let modeDesc = '';
+    if (colorMode === 'approved') {
+      modeDesc = 'Restricted to approved brand colors (Strict Allowlist). All unlisted colors are prohibited.';
+    } else if (colorMode === 'prohibited') {
+      modeDesc = 'Prohibited poster colors & shade spectrums (Strict Blocklist). All unlisted colors are approved.';
+    } else {
+      modeDesc = 'Preferred colors are approved, prohibited shades are banned, and unlisted colors are considered neutral.';
+    }
+
+    const updatedVisualBlock = [
+      `SECTION 12: VISUAL BRAND & ASSET GUIDELINES (Updated v${policyVersion})`,
+      `-------------------------------------------`,
+      ``,
+      `12.1 Approved Brand Color Palette & Governance (${colorMode.toUpperCase()} MODE)`,
+      modeDesc,
+      ``,
+      `Approved Brand Palette (Wanted):`,
+      allApproved || '- None specified',
+      ``,
+      `Prohibited Background & Poster Colors (Unwanted):`,
+      allProhibited || '- None specified',
+      ``,
+      `12.2 Accessibility & WCAG Contrast Standards`,
+      `- Text overlaid on image backgrounds MUST meet ISO/IEC 40500 WCAG 2.1 AA accessibility standards (minimum 4.5:1 contrast ratio).`,
+    ].join('\n');
+
+    const sec12Match = originalText.match(/(?:SECTION\s+12[^\n]*\n[-=\s]*\n|12\.1\s+Approved\s+Brand\s+Color\s+Palette)/i);
+    if (sec12Match && sec12Match.index !== undefined) {
+      const afterMatch = originalText.slice(sec12Match.index).search(/\n\s*(?:APPENDIX|SECTION\s+13)/i);
+      if (afterMatch !== -1) {
+        const prefix = originalText.slice(0, sec12Match.index);
+        const suffix = originalText.slice(sec12Match.index + afterMatch);
+        return `${prefix.trimEnd()}\n\n${updatedVisualBlock}\n\n${suffix.trimStart()}`;
+      } else {
+        const prefix = originalText.slice(0, sec12Match.index);
+        return `${prefix.trimEnd()}\n\n${updatedVisualBlock}\n`;
+      }
+    }
+
+    return `${originalText.trimEnd()}\n\n---\n\n${updatedVisualBlock}\n`;
   };
 
   // Compile Form State to Document Text
@@ -640,13 +724,26 @@ function PolicyBuilderInner() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const compiledDocumentText = builderTab === 'document' ? rawDocumentContent : compileFormToDocumentText();
+    // Lossless Document Content Resolution:
+    let finalDocumentContent = rawDocumentContent.trim();
+    if (builderTab === 'document') {
+      finalDocumentContent = rawDocumentContent.trim();
+    } else {
+      // If user is saving from Visual Builder:
+      // If we have an existing substantial document (e.g. uploaded/loaded guideline), update or merge visual rules
+      if (finalDocumentContent.length > 200) {
+        finalDocumentContent = mergeVisualRulesIntoDocument(finalDocumentContent);
+      } else {
+        finalDocumentContent = compileFormToDocumentText();
+      }
+    }
 
     const payload = {
       title: policyTitle.trim() || 'Custom Policy',
       version: policyVersion.trim() || '1.0',
       description: policyDescription.trim(),
-      raw_text: compiledDocumentText,
+      raw_content: finalDocumentContent,
+      raw_text: finalDocumentContent,
       include_standard_rules: includeStandardRules,
       color_mode: colorMode,
       tone_mode: toneMode,
@@ -673,11 +770,19 @@ function PolicyBuilderInner() {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/api/create-guideline`, {
+      let res = await fetch(`${API_BASE}/api/guidelines/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      if (!res.ok) {
+        res = await fetch(`${API_BASE}/api/create-guideline`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -892,7 +997,10 @@ function PolicyBuilderInner() {
                 type="button"
                 onClick={() => {
                   if (builderTab === 'form') {
-                    setRawDocumentContent(compileFormToDocumentText());
+                    // Lossless: ONLY populate if document is completely empty
+                    if (!rawDocumentContent.trim()) {
+                      setRawDocumentContent(compileFormToDocumentText());
+                    }
                   }
                   setBuilderTab('document');
                 }}
@@ -960,26 +1068,59 @@ function PolicyBuilderInner() {
         ) : builderTab === 'document' ? (
           /* ── Raw Document Text Editor ── */
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Direct Guideline Document Text</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">Direct Guideline Document Text</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Lossless Mode Active ({rawDocumentContent ? rawDocumentContent.split(/\r?\n/).length : 0} lines)
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Edit the raw policy text directly. Switch to Visual Builder anytime to inspect parsed rules.
+                  Full, authentic policy document. Sections 1–12 and all provisions are preserved without loss.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => parseTextIntoFormState(rawDocumentContent)}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
-              >
-                <Wand2 className="w-3.5 h-3.5" />
-                <span>Sync to Form</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => parseTextIntoFormState(rawDocumentContent)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors flex items-center gap-1.5 shadow-2xs"
+                  title="Parse document rules directly into the Visual Form controls"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>Sync to Form</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!rawDocumentContent.trim() || window.confirm("Are you sure you want to replace this document with a consolidated summary generated from the form controls? This will replace your full text with a short summary.")) {
+                      setRawDocumentContent(compileFormToDocumentText());
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-2xs"
+                  title="Generate a consolidated rule summary from your visual form settings"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Generate Summary from Form</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const annotated = annotateInvalidHexInText(rawDocumentContent);
+                    setRawDocumentContent(annotated);
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1.5 shadow-2xs"
+                  title="Detect and comment out any invalid hex codes"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Annotate Hex</span>
+                </button>
+              </div>
             </div>
             <textarea
               value={rawDocumentContent}
               onChange={e => setRawDocumentContent(e.target.value)}
-              rows={20}
+              rows={22}
               className="w-full p-4 border border-slate-200 rounded-xl font-mono text-xs text-slate-800 bg-slate-50/50 leading-relaxed focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 focus:bg-white transition-all shadow-inner"
               placeholder="Paste or write guideline specification rules..."
             />
